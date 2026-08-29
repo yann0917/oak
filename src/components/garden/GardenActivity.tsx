@@ -20,8 +20,19 @@ import { toast } from "@/lib/toast";
 import { Chip } from "@/components/CrudSection";
 import OwlTeacher, { type OwlAction } from "@/components/garden/OwlTeacher";
 import SceneBackground from "@/components/garden/SceneBackground";
+import {
+  EXCITED_TONE,
+  SORRY_TONE,
+  prewarmGardenAudio,
+  speak,
+  stopSpeaking,
+  useVoiceMuted,
+  type SpeakTone,
+} from "@/lib/garden/speech";
+import type { TtsVoice } from "@/lib/tts/voices";
 import { ACTIVITY_MAP, ACTIVITY_PALETTE } from "@/lib/garden/registry";
 import { BUILTIN_CHARACTERS } from "@/data/garden/characters";
+import { PINYIN_READ } from "@/data/garden/pinyin";
 import { DEFAULT_MATH_CONFIG, buildQuestions, parseConfig } from "@/lib/garden/engine";
 import {
   DIFFICULTIES,
@@ -60,6 +71,106 @@ interface ResultItem {
   correct: boolean;
 }
 
+const PRAISE = ["太棒了！你真厉害！", "哇！太厉害了！", "好样的！就是它！"];
+
+// 固定台词预热清单：进园地后后台生成并落盘缓存，之后播放零等待。
+// 语气参数必须和播放时的请求完全一致（音色 + prosody），否则 URL 不同无法命中。
+const WARMUP_LINES: [string, TtsVoice, SpeakTone?][] = [
+  ["跟我一起开始今天的练习吧！", "xiaoyi"],
+  ["出发！加油哦！", "xiaoyi", EXCITED_TONE],
+  ["准备好了吗？再来一轮！", "xiaoyi"],
+  ["咕咕！一起加油呀", "xiaoyi"],
+  ...PRAISE.map((t) => [t, "xiaoyi", EXCITED_TONE] as [string, TtsVoice, SpeakTone]),
+  ["哎呀，差一点点～", "xiaoyi", SORRY_TONE],
+  ["没关系，跳过也可以", "xiaoyi"],
+  ["记住啦，真棒！", "xiaoyi", EXCITED_TONE],
+  ["别急，多看几次就会啦", "xiaoyi", SORRY_TONE],
+  ["哇！满分小达人，太厉害了！", "xiaoyi", EXCITED_TONE],
+  ["真不错，继续加油！", "xiaoyi"],
+  ["真可惜，下次一定更好！", "xiaoyi", SORRY_TONE],
+];
+
+interface SpeechLine {
+  text: string;
+  voice: TtsVoice;
+}
+
+/** 题干与内容拼接：题干已以句末标点结尾时不再重复加句号 */
+function joinSpeech(prompt: string, body: string): string {
+  if (!body) return prompt;
+  return `${prompt.replace(/[。？！，,]$/, "")}。${body}`;
+}
+
+/** 题目朗读内容：题干引导语 + 题面（不读会剧透答案的部分）；音色按活动入口分配（见 voices.ts） */
+function questionSpeech(q: Question): SpeechLine | null {
+  const d = q.display;
+  const prompt = q.prompt.replace(/[「」《》]/g, ""); // 引号书名号交给语音会打断句读
+  if (d.kind === "formula") {
+    // 算式转口播："12 + 3 =" → "12 加 3 等于几？"，认字少的孩子也能听题
+    return {
+      text: d.value
+        .replace("+", "加")
+        .replace("−", "减")
+        .replace("×", "乘")
+        .replace("÷", "除以")
+        .replace("=", "等于几？"),
+      voice: "xiaoyi",
+    };
+  }
+  if (d.kind === "color") {
+    // 只读题干和例词，不读颜色名——它就是答案，读了等于剧透
+    const body = d.sub && !prompt.includes(d.sub) ? d.sub : "";
+    return { text: joinSpeech(prompt, body), voice: "xiaoyi" };
+  }
+  if (d.kind === "emoji") {
+    // 读题干引导；有文字例词（英语单词）时加上，纯看图题只读题干
+    const body = d.sub && !prompt.includes(d.sub) ? d.sub : "";
+    return { text: joinSpeech(prompt, body), voice: "ana" };
+  }
+  if (d.value.includes("_")) return null; // 补全单词的挖空串不适合朗读
+  if (q.itemKey.startsWith("poem:")) {
+    // 诗词题念出题干引导 + 诗题 + 诗句：
+    // 补全名句（value=诗句，sub=《诗名》）→"下一句是什么？静夜思。床前明月光，"
+    // 作者配对（value=《诗名》，sub=诗句）→"静夜思的作者是谁？床前明月光，疑是地上霜。"
+    const valueHasTitle = d.value.includes("《");
+    const title = (valueHasTitle ? d.value : d.sub ?? "").replace(/[《》]/g, "");
+    const body = valueHasTitle ? d.sub ?? "" : d.value;
+    const text = prompt.includes(title)
+      ? joinSpeech(prompt, body)
+      : joinSpeech(joinSpeech(prompt, title), body);
+    return { text, voice: "xiaoxiao" };
+  }
+  if (q.itemKey.startsWith("pinyin:tone:")) {
+    // 带调音节（mā）是拉丁+调号字符，TTS 会按英文字母读；转成对应四声汉字
+    // （mā→妈）朗读，中文 TTS 读出的就是该音节的标准发音
+    return { text: joinSpeech(prompt, q.answer), voice: "yunxia" };
+  }
+  if (q.itemKey.startsWith("pinyin:")) {
+    // 声母/韵母/整体认读是拉丁串，英文音色读不准、中文音色按英语读
+    // （b→bee）：转成呼读音汉字（b→波、an→安、zhi→知）再朗读
+    const body = PINYIN_READ[d.value] ?? d.value;
+    return { text: joinSpeech(prompt, body), voice: "yunxia" };
+  }
+  // 按知识点挑音色：其余中文小依、英文 Ana
+  const voice: TtsVoice = /[一-龥]/.test(d.value) ? "xiaoyi" : "ana";
+  // 题干已含题面词（如"「苹果」的英文是哪个？"）就不重复念题面
+  const body = prompt.includes(d.value) ? "" : d.value;
+  return { text: joinSpeech(prompt, body), voice };
+}
+
+/** 当前卡片应朗读的内容：翻卡揭示前不剧透读音，揭示后读"字，组词"跟读 */
+function cardSpeech(q: Question, revealed: boolean): SpeechLine | null {
+  if (q.mode === "flashcard") {
+    if (!revealed) return null;
+    const word = q.flip?.word;
+    return {
+      text: word ? `${q.display.value}，${word}` : q.display.value,
+      voice: "xiaoyi",
+    };
+  }
+  return questionSpeech(q);
+}
+
 export default function GardenActivity({ type }: { type: string }) {
   const meta = ACTIVITY_MAP[type];
   const router = useRouter();
@@ -90,17 +201,23 @@ export default function GardenActivity({ type }: { type: string }) {
   const [adding, setAdding] = useState(false);
   const [mathOpen, setMathOpen] = useState(false);
 
+  // 语音朗读开关（localStorage 持久化，跨页面同步）
+  const [voiceMuted, setVoiceMutedState] = useVoiceMuted();
+
   // 吉祥物状态：动作 + 台词（nonce 递进让连续同一动作也能重播动画）
   const [owlAction, setOwlAction] = useState<OwlAction>("idle");
   const [owlMsg, setOwlMsg] = useState<{ text: string; n: number } | null>(null);
   const owlNonceRef = useRef(0);
   const owlHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const say = (action: OwlAction, text: string) => {
+  const say = (action: OwlAction, text: string, tone?: SpeakTone): Promise<void> => {
     owlNonceRef.current += 1;
     setOwlAction(action);
     setOwlMsg({ text, n: owlNonceRef.current });
+    // 台词同步朗读（鼓励/反馈语音）：夸奖带激情、答错带惋惜，静音时自动跳过
+    const tts = speak(text, "xiaoyi", tone);
     if (owlHideRef.current) clearTimeout(owlHideRef.current);
     owlHideRef.current = setTimeout(() => setOwlMsg(null), 2400);
+    return tts;
   };
 
   const startedAtRef = useRef(0);
@@ -150,6 +267,22 @@ export default function GardenActivity({ type }: { type: string }) {
     []
   );
 
+  // 进园地预热常用语音（首次后台生成并落盘缓存），离开练习页时停掉正在播的语音
+  useEffect(() => {
+    prewarmGardenAudio(WARMUP_LINES);
+    return () => stopSpeaking();
+  }, []);
+
+  // 听题/跟读：题目出现（翻卡揭示）后稍作停顿自动朗读题面
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const q = questions[current];
+    const line = q ? cardSpeech(q, revealed) : null;
+    if (!line) return;
+    const t = window.setTimeout(() => speak(line.text, line.voice), 350);
+    return () => window.clearTimeout(t);
+  }, [phase, current, questions, revealed]);
+
   // 进入结果页时自动保存本次练习（会话记录 + 知识点掌握度）
   useEffect(() => {
     if (phase !== "done" || !currentChild || savedRef.current) return;
@@ -166,17 +299,18 @@ export default function GardenActivity({ type }: { type: string }) {
     }).catch(() => {});
   }, [phase, currentChild, type, difficulty, durationSec, results]);
 
-  // 结果页：按正确率给吉祥物反应
+  // 结果页：按正确率给吉祥物反应（高分激情夸奖，低分惋惜安慰）
   useEffect(() => {
     if (phase !== "done" || results.length === 0) return;
     const acc = results.filter((r) => r.correct).length / results.length;
-    if (acc >= 0.9) say("great", "太棒了，你是学习小达人！");
-    else if (acc >= 0.4) say("encourage", "有进步，继续加油！");
-    else say("encourage", "没关系，再练一轮会更好！");
+    if (acc >= 0.9) say("great", "哇！满分小达人，太厉害了！", EXCITED_TONE);
+    else if (acc >= 0.4) say("encourage", "真不错，继续加油！");
+    else say("encourage", "真可惜，下次一定更好！", SORRY_TONE);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   const question = questions[current];
+  const speechLine = question ? cardSpeech(question, revealed) : null;
   const weakCount = mastery.filter((m) => m.wrongCount > 0).length;
 
   if (!meta) return null;
@@ -233,7 +367,7 @@ export default function GardenActivity({ type }: { type: string }) {
     setEntry("");
     setLives(3);
     setPhase("playing");
-    say("ok", "出发！加油哦！");
+    say("ok", "出发！加油哦！", EXCITED_TONE);
   };
 
   const recordResult = (q: Question, correct: boolean) => {
@@ -242,6 +376,10 @@ export default function GardenActivity({ type }: { type: string }) {
   };
 
   const goNext = () => {
+    if (advanceRef.current) {
+      clearTimeout(advanceRef.current);
+      advanceRef.current = null;
+    }
     setPicked(null);
     setRevealed(false);
     setEntry("");
@@ -254,43 +392,74 @@ export default function GardenActivity({ type }: { type: string }) {
     }
   };
 
-  const PRAISE = ["答对啦！", "太厉害了！", "真棒，就是它！"];
+  /** 反馈语音播完后再进下一题：至少停留 minMs（静音时靠它保证看清答案），最久 maxMs 兜底 */
+  const advanceAfterVoice = (voice: Promise<void>, minMs: number, maxMs: number) => {
+    const started = Date.now();
+    advanceRef.current = setTimeout(goNext, maxMs);
+    void voice.then(() => {
+      if (advanceRef.current === null) return; // 超时路径已推进
+      const wait = Math.max(0, minMs - (Date.now() - started));
+      clearTimeout(advanceRef.current);
+      advanceRef.current = setTimeout(goNext, wait);
+    });
+  };
 
   const answerChoice = (option: string) => {
     if (picked || !question) return;
     setPicked(option);
     const correct = option === question.answer;
     recordResult(question, correct);
-    if (correct) say("great", PRAISE[Math.floor(Math.random() * PRAISE.length)]);
-    else say("wrong", "再想一想～");
-    // 答错时多停留一会，让孩子看清正确答案
-    advanceRef.current = setTimeout(goNext, correct ? 800 : 1600);
+    // 等夸奖/惋惜语音播完再切题，避免被下一题打断（静音时靠 minMs 看清答案）
+    const voice = correct
+      ? say("great", PRAISE[Math.floor(Math.random() * PRAISE.length)], EXCITED_TONE)
+      : say("wrong", "哎呀，差一点点～", SORRY_TONE);
+    advanceAfterVoice(voice, correct ? 1000 : 1600, correct ? 4200 : 5200);
   };
 
-  const confirmKeypad = () => {
-    if (picked !== null || !question || !entry) return;
-    setPicked(entry);
-    const correct = entry === question.answer;
+  /** 提交数学答案（"好了"按钮与输满自动判定共用），根据结果朗读并决定切题时机 */
+  const submitKeypad = (value: string) => {
+    if (picked !== null || !question || !value) return;
+    setPicked(value);
+    const correct = value === question.answer;
     recordResult(question, correct);
-    if (correct) say("great", PRAISE[Math.floor(Math.random() * PRAISE.length)]);
-    else say("wrong", `正确答案是 ${question.answer} 哦`);
-    advanceRef.current = setTimeout(goNext, correct ? 800 : 1600);
+    const voice = correct
+      ? say("great", PRAISE[Math.floor(Math.random() * PRAISE.length)], EXCITED_TONE)
+      : say("wrong", `咦，正确答案是 ${question.answer} 哦`, SORRY_TONE);
+    advanceAfterVoice(voice, correct ? 1000 : 1600, correct ? 4200 : 5200);
+  };
+
+  /** 数字键：输入到答案位数就自动判定（对→判对；同位数不同值→判错），无需再按"好了" */
+  const pressDigit = (d: string) => {
+    if (picked !== null || !question) return;
+    if (entry === "" && d === "0") return; // 答案不会以 0 开头
+    if (entry.length >= 3) return;
+    const next = entry + d;
+    setEntry(next);
+    if (next.length === question.answer.length) submitKeypad(next);
   };
 
   const skipQuestion = () => {
     if (picked !== null || !question) return;
     setPicked("__skipped__");
     recordResult(question, false);
-    say("encourage", "没关系，跳过也可以");
-    advanceRef.current = setTimeout(goNext, 1100);
+    const voice = say("encourage", "没关系，跳过也可以");
+    advanceAfterVoice(voice, 1100, 3600);
+  };
+
+  const revealCard = () => {
+    if (!question || revealed) return;
+    // 自动跟读由监听 revealed 的 effect 统一触发，避免双重朗读
+    setRevealed(true);
   };
 
   const answerFlashcard = (correct: boolean) => {
     if (!question) return;
     recordResult(question, correct);
-    if (correct) say("ok", "记住啦，真棒！");
-    else say("encourage", "多看几次就会啦");
-    setTimeout(goNext, 250);
+    const voice = correct
+      ? say("ok", "记住啦，真棒！", EXCITED_TONE)
+      : say("encourage", "别急，多看几次就会啦", SORRY_TONE);
+    // 跟读与反馈语音播完再走，避免"字，组词"或鼓励语没读完就切下一张
+    advanceAfterVoice(voice, 1000, 4200);
   };
 
   const restart = () => {
@@ -372,6 +541,19 @@ export default function GardenActivity({ type }: { type: string }) {
             style={{ borderColor: "#e8dcc8", color: "var(--animal-text-color)" }}
           >
             返回园地
+          </div>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={voiceMuted ? "开启语音朗读" : "关闭语音朗读"}
+            onClick={() => setVoiceMutedState(!voiceMuted)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") setVoiceMutedState(!voiceMuted);
+            }}
+            className="h-10 w-10 shrink-0 rounded-full bg-white/90 border-2 flex items-center justify-center text-lg cursor-pointer select-none"
+            style={{ borderColor: "#e8dcc8" }}
+          >
+            {voiceMuted ? "🔇" : "🔊"}
           </div>
           <div className="ml-auto flex items-center gap-3">
             {phase === "playing" && (
@@ -544,6 +726,26 @@ export default function GardenActivity({ type }: { type: string }) {
           {question.mode === "choice" && renderChoice()}
           {question.mode === "keypad" && renderKeypad()}
 
+          {/* 朗读按钮：重听题面 / 翻卡后跟读一遍 */}
+          {speechLine && (
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="再读一遍"
+              onClick={() => speak(speechLine.text, speechLine.voice)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  speak(speechLine.text, speechLine.voice);
+                }
+              }}
+              className="absolute right-4 top-4 h-9 w-9 rounded-full bg-white border-2 flex items-center justify-center text-lg cursor-pointer select-none"
+              style={{ borderColor: "#e8dcc8" }}
+            >
+              🔊
+            </div>
+          )}
+
           {/* 跳过（翻卡自评不需要） */}
           {question.mode !== "flashcard" && picked === null && (
             <div
@@ -597,8 +799,8 @@ export default function GardenActivity({ type }: { type: string }) {
             role="button"
             tabIndex={0}
             aria-label={`汉字 ${question.display.value}，点按显示拼音`}
-            onClick={revealed ? undefined : () => setRevealed(true)}
-            onKeyDown={(e) => e.key === "Enter" && setRevealed(true)}
+            onClick={revealed ? undefined : revealCard}
+            onKeyDown={(e) => e.key === "Enter" && revealCard()}
             className="relative cursor-pointer"
             style={{ width: "min(66vw, 300px)", height: "min(66vw, 300px)" }}
           >
@@ -696,6 +898,7 @@ export default function GardenActivity({ type }: { type: string }) {
         <div className="flex flex-col items-center text-center gap-3">
           <p className="text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
             {question.prompt}
+            <span className="ml-1 opacity-80">（输满自动判断）</span>
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <span
@@ -726,7 +929,7 @@ export default function GardenActivity({ type }: { type: string }) {
                 label={d}
                 bg={candy.bg}
                 dark={candy.dark}
-                onClick={() => setEntry((v) => (v.length < 3 ? v + d : v))}
+                onClick={() => pressDigit(d)}
                 disabled={picked !== null}
               />
             );
@@ -740,11 +943,11 @@ export default function GardenActivity({ type }: { type: string }) {
             disabled={picked !== null || !entry}
           />
           <CandyButton
-            label="确认"
+            label="好了"
             bg="#67b56e"
             dark="#4c9c54"
             className="col-span-3"
-            onClick={confirmKeypad}
+            onClick={() => submitKeypad(entry)}
             disabled={picked !== null || !entry}
           />
         </div>

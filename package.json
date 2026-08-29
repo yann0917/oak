@@ -20,7 +20,8 @@
     "pinyin-pro": "^3.29.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -29,6 +30,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "^16",
