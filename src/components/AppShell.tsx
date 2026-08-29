@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           <div className="px-5 pt-6 pb-4 text-center">
             <Title size="small" color="app-teal">
-              成长足迹
+              Oak
             </Title>
           </div>
           <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">{navLinks()}</nav>
@@ -106,7 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 ☰
               </button>
               <span className="md:hidden font-bold" style={{ color: "var(--animal-primary-color)" }}>
-                成长足迹
+                Oak
               </span>
               <div className="ml-auto flex items-center gap-2">
                 <WeatherBadge />

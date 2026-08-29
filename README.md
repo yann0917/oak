@@ -1,4 +1,4 @@
-# 🌱 成长足迹 — 儿童成长教育记录系统
+# 🌳 Oak — 儿童成长教育记录系统
 
 记录孩子的成长、教育与学习点滴。支持多个孩子档案，覆盖幼儿园到大学等各学习阶段。
 
@@ -34,29 +34,56 @@ npm start        # 访问 http://localhost:3000
 
 ## 部署到服务器
 
-1. 服务器需 Node.js 20.9+（Next.js 16 要求）
-2. 上传项目目录（不含 `node_modules`），执行 `npm install && npm run build`
-3. 启动（任选其一）：
-   ```bash
-   npm start                          # 前台
-   pm2 start npm --name edu -- start  # pm2 守护
-   ```
-4. 如需修改端口：`PORT=8080 npm start`
-5. 建议配置 Nginx 反向代理，并启用 HTTPS（系统含登录认证，公网务必走 HTTPS）
+采用 GitHub Actions 自动构建部署（`.github/workflows/deploy.yml`）：推送 `main` 分支后 CI 自动 `npm run build` 产出 **standalone 独立运行包**（自带按需裁剪的 node_modules，压缩包约 65MB），上传服务器后 `node server.js` 直接运行，**服务器上不需要 npm install**。
+
+### 1. 服务器准备（一次性）
+
+- 安装 Node.js 20.9+ 与 pm2：`npm i -g pm2`
+- 把部署机的 SSH 公钥加入服务器 `authorized_keys`
+- 目录无需手动创建，首次部署自动生成，布局如下：
+
+```
+/opt/oak/                      # 默认部署目录，可用 secrets DEPLOY_DIR 覆盖
+├── var/data/                  # SQLite 数据库（持久，跨版本保留）
+├── var/uploads/               # 上传的照片（持久）
+├── releases/<commit>/         # 每次部署的独立版本
+└── current -> releases/xxx    # 当前版本符号链接
+```
+
+> standalone 的 server.js 启动时会 `chdir` 到自身所在目录，所以每个 release 里的 `data`、`uploads` 是指向 `var/` 的符号链接（部署脚本自动创建），数据不会随版本切换丢失。
+
+### 2. GitHub 仓库配置 Secrets（Settings → Secrets and variables → Actions）
+
+| Secret | 必填 | 说明 |
+| --- | --- | --- |
+| `SSH_HOST` | ✅ | 服务器 IP 或域名 |
+| `SSH_USER` | ✅ | SSH 用户名 |
+| `SSH_PRIVATE_KEY` | ✅ | SSH 私钥全文（`cat ~/.ssh/id_ed25519`） |
+| `SSH_PORT` |  | SSH 端口，默认 22 |
+| `DEPLOY_DIR` |  | 部署目录，默认 `/opt/oak` |
+| `APP_PORT` |  | 应用端口，默认 3000（部署后健康检查用；改端口需同时给 pm2 传 `PORT`） |
+
+### 3. 部署
+
+推送代码到 `main` 分支即自动构建并部署，也可在 Actions 页面手动触发（workflow_dispatch）。部署脚本会做健康检查（`/login` 返回 200），自动保留最近 5 个版本并清理旧版本；构建产物同时作为 Artifact 保存 7 天，可手动下载。
+
+> CI 构建机的 better-sqlite3 原生模块基于较新的 glibc，服务器建议 Ubuntu 20.04+ / Debian 11+ 或同等版本。数据库结构与默认账号在应用启动时自动幂等迁移，部署不会影响已有数据。
+
+本地也可以手动构建：`npm run build` 后运行 `node .next/standalone/server.js`（同样需保证运行目录下有 `data`、`uploads`、`public`、`.next/static`）。
 
 ## 数据备份
 
 所有数据都在两个位置，复制即可备份：
 
-- `data/edu.db` — SQLite 数据库（全部记录）
-- `uploads/` — 上传的照片与附件
+- 本地开发：`data/`（SQLite 数据库）+ `uploads/`（上传的照片与附件）
+- 服务器部署：`/opt/oak/var/data/` + `/opt/oak/var/uploads/`
 
-> ⚠️ 数据库开启了 WAL 模式，最近的写入会暂存在 `data/edu.db-wal` 中。备份时建议把 `edu.db`、`edu.db-wal`、`edu.db-shm` 三个文件一起复制（或先停服务再只复制 `edu.db`），否则可能丢失最近提交。
+> ⚠️ 数据库开启了 WAL 模式，最近的写入会暂存在 `oak.db-wal` 中。备份时建议把 `oak.db`、`oak.db-wal`、`oak.db-shm` 三个文件一起复制（或先停服务再只复制 `oak.db`），否则可能丢失最近提交。
 
-定时备份示例（crontab，每天凌晨 3 点）：
+定时备份示例（crontab，每天凌晨 3 点，服务器上）：
 
 ```
-0 3 * * * cp /path/to/edu/data/edu.db* /backup/ && cp -r /path/to/edu/uploads /backup/uploads-$(date +\%F)
+0 3 * * * cp /opt/oak/var/data/oak.db* /backup/ && cp -r /opt/oak/var/uploads /backup/uploads-$(date +\%F)
 ```
 
 ## 技术栈

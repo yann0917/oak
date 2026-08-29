@@ -8,7 +8,7 @@ import * as schema from "./schema";
 const dataDir = path.join(process.cwd(), "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const sqlite = new Database(path.join(dataDir, "edu.db"));
+const sqlite = new Database(path.join(dataDir, "oak.db"));
 sqlite.pragma("busy_timeout = 5000");
 sqlite.pragma("journal_mode = WAL");
 

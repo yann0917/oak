@@ -5,7 +5,7 @@ import "animal-island-ui/es/components/Cursor/cursor.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "成长足迹 - 儿童成长教育记录",
+  title: "Oak - 儿童成长教育记录",
   description: "记录孩子的成长、教育与学习点滴",
 };
 
