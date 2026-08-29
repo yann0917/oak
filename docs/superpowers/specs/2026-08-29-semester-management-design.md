@@ -43,11 +43,11 @@
 
 `timetable_slots`、`learning_records`、`fee_records` 各新增 `semester_id INTEGER`（可空）。三张表的遗留 `term` 文本列在迁移完成后**删除**（含 Drizzle schema 定义、建表 SQL 与 `ensureColumn` 补列逻辑同步更新）；新库的建表 SQL 不再包含 `term`。`timetable_period_order` 的 `term`（节次顺序按学期名存储）保留，不受影响。环境为 better-sqlite3（SQLite 3.53.4），支持 `ALTER TABLE ... DROP COLUMN`，删除前用 `pragma table_info` 判断列是否存在。
 
-## 旧数据自动迁移（一次性）
+## 旧数据自动迁移（幂等）
 
-- 启动时先探测 `sqlite_master` 中 `semesters` 表是否存在；仅当**本次启动首次创建**该表时执行数据迁移。
-- 对三张表分别取 `DISTINCT child_id, term`（`term != ''`）：按孩子+名称写入 `semesters`（stage 留空），随后 `UPDATE ... SET semester_id = (SELECT id FROM semesters WHERE child_id = t.child_id AND name = t.term) WHERE term != '' AND semester_id IS NULL`。
-- 回填完成后删除三张表的 `term` 列（`ALTER TABLE ... DROP COLUMN`，列存在才执行）。顺序必须为先回填后删列，避免旧数据丢失。
+- 每次启动检查三张表是否仍存在 `term` 列（`pragma table_info`）；列已删除则跳过，列存在则执行回填。
+- 对仍含 `term` 列的表取 `DISTINCT child_id, term`（`term != ''`）：按孩子+名称补写 `semesters`（stage 留空，重名跳过），随后 `UPDATE ... SET semester_id = (SELECT id FROM semesters WHERE child_id = t.child_id AND name = t.term) WHERE semester_id IS NULL AND term != ''`。
+- 回填完成后删除该表的 `term` 列（`ALTER TABLE ... DROP COLUMN`）。顺序必须为先回填后删列，避免旧数据丢失；回填幂等，迁移中途失败时下次启动自动续做。
 
 ## API
 
