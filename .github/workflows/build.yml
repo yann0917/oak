@@ -1,0 +1,46 @@
+# 只负责构建：推送 main 后产出 standalone 独立部署包（Artifact: oak-dist），
+# 从 Actions 页面下载后自行 scp 到服务器解压运行，服务器上不需要 npm install。
+#
+# 部署包内容：server.js + 裁剪版 node_modules + .next（含 static）+ public
+# 注意：部署包不含 data/、uploads/（用户数据不进制品）。
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 构建部署包
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: |
+          npm ci
+          npm run build
+
+      - name: 组装部署包
+        run: |
+          # standalone 需手动补齐静态资源与 public
+          cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/static
+          # 本机构建时 tracer 会把本地 data/ uploads/ 复制进产物；
+          # CI 仓库里没有这两个目录，这里防御性清理，避免把数据带进制品
+          rm -rf .next/standalone/data .next/standalone/uploads
+          tar -czf oak-dist.tar.gz -C .next/standalone .
+          du -sh oak-dist.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oak-dist
+          path: oak-dist.tar.gz
+          retention-days: 14

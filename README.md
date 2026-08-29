@@ -34,49 +34,38 @@ npm start        # 访问 http://localhost:3000
 
 ## 部署到服务器
 
-采用 GitHub Actions 自动构建部署（`.github/workflows/deploy.yml`）：推送 `main` 分支后 CI 自动 `npm run build` 产出 **standalone 独立运行包**（自带按需裁剪的 node_modules，压缩包约 65MB），上传服务器后 `node server.js` 直接运行，**服务器上不需要 npm install**。
+GitHub Actions 只负责构建（`.github/workflows/build.yml`）：推送 `main` 分支后自动产出 **standalone 独立部署包**（自带按需裁剪的 node_modules，压缩包约 65MB），在 Actions 页面对应 run 的 Artifacts 里下载 `oak-dist`（或 `gh run download -n oak-dist`），scp 到服务器解压运行。**服务器上不执行 npm install。**
 
-### 1. 服务器准备（一次性）
+> **服务器系统要求：Ubuntu 22.04+ / Debian 12+**。better-sqlite3 的预编译模块需要 glibc ≥ 2.34（Ubuntu 20.04 的 2.31、CentOS 7 的 2.17 都不满足），Node 22 官方包也要求 glibc ≥ 2.28。服务器另需 Node.js 20.9+ 与 pm2。
 
-- 安装 Node.js 20.9+ 与 pm2：`npm i -g pm2`
-- 把部署机的 SSH 公钥加入服务器 `authorized_keys`
-- 目录无需手动创建，首次部署自动生成，布局如下：
+### 手动部署步骤
 
+应用目录是「单目录覆盖式」升级：`data/`、`uploads/` 放在应用目录内，每次解压只覆盖程序文件，数据天然保留，无需软链接。
+
+```bash
+# 首次部署
+sudo mkdir -p /opt/oak && cd /opt/oak
+# 把 oak-dist.tar.gz 传到 /opt/oak 后：
+tar -xzf oak-dist.tar.gz     # 解压出 server.js、node_modules、.next、public
+pm2 start node --name oak -- server.js
+
+# 以后每次更新：新的 oak-dist.tar.gz 传到 /opt/oak 后
+cd /opt/oak && tar -xzf oak-dist.tar.gz && pm2 restart oak
 ```
-/opt/oak/                      # 默认部署目录，可用 secrets DEPLOY_DIR 覆盖
-├── var/data/                  # SQLite 数据库（持久，跨版本保留）
-├── var/uploads/               # 上传的照片（持久）
-├── releases/<commit>/         # 每次部署的独立版本
-└── current -> releases/xxx    # 当前版本符号链接
-```
 
-> standalone 的 server.js 启动时会 `chdir` 到自身所在目录，所以每个 release 里的 `data`、`uploads` 是指向 `var/` 的符号链接（部署脚本自动创建），数据不会随版本切换丢失。
+- `data/`、`uploads/` 由应用自动创建；改端口用 `PORT=8080 pm2 start node --name oak -- server.js`
+- 回滚：每次的 `oak-dist.tar.gz` 就是版本备份，解压旧包 + `pm2 restart oak` 即可
+- 公网部署建议 Nginx 反向代理并启用 HTTPS（系统含登录认证，务必走 HTTPS）
+- 数据库结构与默认账号在应用启动时自动幂等迁移，更新不会影响已有数据
 
-### 2. GitHub 仓库配置 Secrets（Settings → Secrets and variables → Actions）
-
-| Secret | 必填 | 说明 |
-| --- | --- | --- |
-| `SSH_HOST` | ✅ | 服务器 IP 或域名 |
-| `SSH_USER` | ✅ | SSH 用户名 |
-| `SSH_PRIVATE_KEY` | ✅ | SSH 私钥全文（`cat ~/.ssh/id_ed25519`） |
-| `SSH_PORT` |  | SSH 端口，默认 22 |
-| `DEPLOY_DIR` |  | 部署目录，默认 `/opt/oak` |
-| `APP_PORT` |  | 应用端口，默认 3000（部署后健康检查用；改端口需同时给 pm2 传 `PORT`） |
-
-### 3. 部署
-
-推送代码到 `main` 分支即自动构建并部署，也可在 Actions 页面手动触发（workflow_dispatch）。部署脚本会做健康检查（`/login` 返回 200），自动保留最近 5 个版本并清理旧版本；构建产物同时作为 Artifact 保存 7 天，可手动下载。
-
-> CI 构建机的 better-sqlite3 原生模块基于较新的 glibc，服务器建议 Ubuntu 20.04+ / Debian 11+ 或同等版本。数据库结构与默认账号在应用启动时自动幂等迁移，部署不会影响已有数据。
-
-本地也可以手动构建：`npm run build` 后运行 `node .next/standalone/server.js`（同样需保证运行目录下有 `data`、`uploads`、`public`、`.next/static`）。
+本地手动构建同样可行：`npm run build` 后把 `.next/standalone` 里的内容补上 `public` 与 `.next/static`（见 workflow 的「组装部署包」步骤）打 tar 即可。
 
 ## 数据备份
 
 所有数据都在两个位置，复制即可备份：
 
 - 本地开发：`data/`（SQLite 数据库）+ `uploads/`（上传的照片与附件）
-- 服务器部署：`/opt/oak/var/data/` + `/opt/oak/var/uploads/`
+- 服务器部署：`/opt/oak/data/` + `/opt/oak/uploads/`
 
 > ⚠️ 数据库开启了 WAL 模式，最近的写入会暂存在 `oak.db-wal` 中。备份时建议把 `oak.db`、`oak.db-wal`、`oak.db-shm` 三个文件一起复制（或先停服务再只复制 `oak.db`），否则可能丢失最近提交。
 
