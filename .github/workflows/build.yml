@@ -18,9 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 用 Node 24（npm 11）与本地开发环境保持一致：npm 10 会对可选 peer 依赖
+      # （@emnapi/*）要求额外的锁文件条目，npm 11 生成的锁过不了 npm 10 的 ci 校验
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: |
