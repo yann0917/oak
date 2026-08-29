@@ -2,26 +2,138 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--animal-text-color);
+  background: var(--animal-bg-color);
+  font-family: var(--animal-font-family);
+  font-weight: 500;
+}
+
+/* 覆盖浏览器 autofill 的冷色底，保持暖色胶囊观感 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: var(--animal-text-color);
+  transition: background-color 9999s ease-out;
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .text-secondary {
+    color: var(--animal-text-color-secondary);
+  }
+  .bg-warm {
+    background: var(--animal-bg-color-secondary);
+  }
+  .bg-warm-soft {
+    background: var(--animal-bg-color);
+  }
+  .hover-warm:hover {
+    background: var(--animal-bg-color-secondary);
+  }
+}
+
+/* ===== 图片灯箱（多图预览的进出场动画） ===== */
+@keyframes photo-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes photo-zoom-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.photo-fade-in {
+  animation: photo-fade-in var(--animal-motion-duration-base) var(--animal-motion-ease);
+}
+.photo-zoom-in {
+  animation: photo-zoom-in var(--animal-motion-duration-slow) var(--animal-motion-ease);
+}
+
+/* ===== 登录页动态背景 ===== */
+@keyframes ai-drift {
+  from { transform: translateX(-20vw); }
+  to { transform: translateX(120vw); }
+}
+@keyframes ai-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-16px) rotate(4deg); }
+}
+@keyframes ai-fall {
+  0% { transform: translate3d(0, -12vh, 0) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translate3d(8vw, 112vh, 0) rotate(340deg); opacity: 0; }
+}
+@keyframes ai-sway {
+  0%, 100% { transform: translateX(-16px) rotate(-14deg); }
+  50% { transform: translateX(16px) rotate(14deg); }
+}
+@keyframes ai-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7) rotate(0deg); }
+  50% { opacity: 0.85; transform: scale(1.1) rotate(24deg); }
+}
+@keyframes ai-spin-slow {
+  to { transform: rotate(360deg); }
+}
+@keyframes ai-flap-l {
+  0%, 100% { transform: rotate(18deg); }
+  50% { transform: rotate(-10deg) scaleX(0.85); }
+}
+@keyframes ai-flap-r {
+  0%, 100% { transform: rotate(-18deg); }
+  50% { transform: rotate(10deg) scaleX(0.85); }
+}
+@keyframes hamster-wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-anim {
+    animation: none !important;
+  }
+}
+
+/* ===== 生长标准测评：十字准线 + 脉冲定位点 ===== */
+.g-cross-v,
+.g-cross-h {
+  position: absolute;
+  background: var(--animal-primary-color);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.g-cross-v {
+  width: 2px;
+  margin-left: -1px;
+}
+.g-cross-h {
+  height: 2px;
+  margin-top: -1px;
+}
+.g-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--animal-primary-color);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  animation: g-pulse 1.6s var(--animal-motion-ease) infinite;
+}
+@keyframes g-pulse {
+  0% {
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08), 0 0 0 0 var(--animal-primary-color-bg);
+  }
+  70% {
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08), 0 0 0 16px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08), 0 0 0 0 transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g-marker {
+    animation: none !important;
   }
 }

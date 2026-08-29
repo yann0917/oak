@@ -1,0 +1,269 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Button, Divider, Icon, Input, Modal, Select, DatePicker } from "animal-island-ui";
+import { Notification } from "@/lib/toast";
+import { api } from "@/lib/api";
+import { useChildren } from "@/lib/childContext";
+import { CrudSection, ItemActions } from "@/components/CrudSection";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
+const emptyLink = { teacherId: "", stage: "", startDate: "", endDate: "", notes: "" };
+
+export default function TeachersSection() {
+  const { currentChild } = useChildren();
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [links, setLinks] = useState<any[]>([]);
+  const [showLink, setShowLink] = useState(false);
+  const [editingLinkId, setEditingLinkId] = useState<number | null>(null);
+  const [linkForm, setLinkForm] = useState({ ...emptyLink });
+  const [deletingLink, setDeletingLink] = useState<number | null>(null);
+  const [linkSaving, setLinkSaving] = useState(false);
+
+  const loadTeachers = () => {
+    api("/api/teachers").then(setTeachers).catch(() => {});
+  };
+
+  const loadLinks = () => {
+    if (currentChild) {
+      api(`/api/child-teachers?childId=${currentChild.id}`).then(setLinks).catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    loadTeachers();
+    loadLinks();
+  }, [currentChild]);
+
+  const teacherName = (id: number) => teachers.find((t) => t.id === id)?.name ?? "（已删除）";
+
+  const openAddLink = () => {
+    setEditingLinkId(null);
+    setLinkForm({ ...emptyLink });
+    setShowLink(true);
+  };
+
+  const openEditLink = (link: any) => {
+    setEditingLinkId(link.id);
+    setLinkForm({
+      teacherId: String(link.teacherId ?? ""),
+      stage: link.stage ?? "",
+      startDate: link.startDate ?? "",
+      endDate: link.endDate ?? "",
+      notes: link.notes ?? "",
+    });
+    setShowLink(true);
+  };
+
+  const saveLink = async () => {
+    if (!linkForm.teacherId || !currentChild) return;
+    setLinkSaving(true);
+    try {
+      const payload = {
+        childId: currentChild.id,
+        teacherId: Number(linkForm.teacherId),
+        stage: linkForm.stage,
+        startDate: linkForm.startDate,
+        endDate: linkForm.endDate,
+        notes: linkForm.notes,
+      };
+      if (editingLinkId) {
+        await api(`/api/child-teachers/${editingLinkId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await api("/api/child-teachers", { method: "POST", body: JSON.stringify(payload) });
+      }
+      setShowLink(false);
+      Notification.success(editingLinkId ? "修改已保存" : "关联成功");
+      loadLinks();
+    } catch (e: any) {
+      Notification.error(e.message || "保存失败");
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
+  const removeLink = async (id: number) => {
+    await api(`/api/child-teachers/${id}`, { method: "DELETE" });
+    Notification.success("已移除关联");
+    setDeletingLink(null);
+    loadLinks();
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <CrudSection
+          title="老师列表"
+          endpoint="/api/teachers"
+          onDataChange={loadTeachers}
+          fields={[
+            { name: "name", label: "姓名", required: true },
+            { name: "subject", label: "科目/职务", placeholder: "如：班主任、语文" },
+            { name: "phone", label: "联系方式" },
+            { name: "notes", label: "备注", type: "textarea" },
+          ]}
+          renderItem={(item, actions) => (
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: "var(--animal-primary-color-bg)" }}
+              >
+                <Icon name="icon-chat" size={22} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold">
+                  {item.name}
+                  {item.subject && (
+                    <span className="text-xs ml-2" style={{ color: "var(--animal-text-color-secondary)" }}>
+                      {item.subject}
+                    </span>
+                  )}
+                </p>
+                {item.phone && (
+                  <p className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+                    {item.phone}
+                  </p>
+                )}
+              </div>
+              <ItemActions {...actions} />
+            </div>
+          )}
+        />
+      </div>
+
+      {currentChild && (
+        <div>
+          <Divider type="wave-yellow" />
+          <div className="flex items-center justify-between mt-6 mb-4">
+            <h3 className="font-bold" style={{ color: "var(--animal-text-color)" }}>
+              {currentChild.name} 的老师
+            </h3>
+            <Button type="primary" onClick={openAddLink}>
+              关联老师
+            </Button>
+          </div>
+          {links.length === 0 ? (
+            <div
+              className="text-center py-10 text-sm rounded-3xl border-2 border-dashed"
+              style={{
+                color: "var(--animal-text-color-secondary)",
+                borderColor: "var(--animal-border-color-light)",
+              }}
+            >
+              还没有关联老师
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {links.map((link) => (
+                <div
+                  key={link.id}
+                  className="flex items-center gap-3 p-4 rounded-3xl border-2"
+                  style={{
+                    background: "var(--animal-bg-color)",
+                    borderColor: "var(--animal-border-color-light)",
+                  }}
+                >
+                  <div className="flex-1">
+                    <p className="font-bold">{teacherName(link.teacherId)}</p>
+                    <p className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+                      {link.stage && `${link.stage} · `}
+                      {link.startDate || "?"} ~ {link.endDate || "至今"}
+                      {link.notes && ` · ${link.notes}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button size="small" onClick={() => openEditLink(link)}>
+                      编辑
+                    </Button>
+                    <Button size="small" danger onClick={() => setDeletingLink(link.id)}>
+                      移除
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Modal
+        open={showLink}
+        title={editingLinkId ? "编辑关联" : "关联老师"}
+        onClose={() => setShowLink(false)}
+        width={560}
+        typewriter={false}
+        footer={
+          <>
+            <Button onClick={() => setShowLink(false)}>取消</Button>
+            <Button type="primary" loading={linkSaving} onClick={saveLink}>
+              保存
+            </Button>
+          </>
+        }
+      >
+        <div className="w-full max-h-[60vh] overflow-y-auto pr-1 pb-24 space-y-4">
+          <div>
+            <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+              老师
+            </label>
+            <Select
+              value={linkForm.teacherId}
+              onChange={(key) => setLinkForm({ ...linkForm, teacherId: key })}
+              options={teachers.map((t) => ({
+                key: String(t.id),
+                label: t.subject ? `${t.name}（${t.subject}）` : t.name,
+              }))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+              阶段/说明
+            </label>
+            <Input
+              placeholder="如：幼儿园小班"
+              value={linkForm.stage}
+              onChange={(e) => setLinkForm({ ...linkForm, stage: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="min-w-0">
+              <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+                开始
+              </label>
+              <DatePicker
+                className="w-full"
+                value={linkForm.startDate || null}
+                allowClear
+                onChange={(v) => setLinkForm({ ...linkForm, startDate: typeof v === "string" ? v : "" })}
+              />
+            </div>
+            <div className="min-w-0">
+              <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+                结束（空=至今）
+              </label>
+              <DatePicker
+                className="w-full"
+                value={linkForm.endDate || null}
+                allowClear
+                onChange={(v) => setLinkForm({ ...linkForm, endDate: typeof v === "string" ? v : "" })}
+              />
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={deletingLink != null}
+        title="移除确认"
+        content="确定移除这位老师与孩子的关联吗？"
+        confirmText="移除"
+        danger
+        onConfirm={() => deletingLink != null && removeLink(deletingLink)}
+        onClose={() => setDeletingLink(null)}
+      />
+    </div>
+  );
+}

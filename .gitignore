@@ -28,6 +28,13 @@ yarn-error.log*
 # local env files
 .env*.local
 
+/uploads
+/data
+
+.agents/
+.zcode/
+.claude/
+
 # vercel
 .vercel
 

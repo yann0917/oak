@@ -1,0 +1,212 @@
+{
+  "standard": [
+    "WS/T 423—2022",
+    "WS/T 612—2018"
+  ],
+  "image_size": {
+    "width": 1600,
+    "height": 1200
+  },
+  "charts": {
+    "wfa_male": {
+      "file": "images/wfa_male.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 88
+      },
+      "y": {
+        "min": 0,
+        "max": 32
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "wfa_female": {
+      "file": "images/wfa_female.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 88
+      },
+      "y": {
+        "min": 0,
+        "max": 32
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "hfa_male": {
+      "file": "images/hfa_male.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 88
+      },
+      "y": {
+        "min": 40,
+        "max": 135
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "hfa_female": {
+      "file": "images/hfa_female.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 88
+      },
+      "y": {
+        "min": 40,
+        "max": 135
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "bfa_male": {
+      "file": "images/bfa_male.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 88
+      },
+      "y": {
+        "min": 10,
+        "max": 21
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "bfa_female": {
+      "file": "images/bfa_female.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 88
+      },
+      "y": {
+        "min": 10,
+        "max": 21
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "hca_male": {
+      "file": "images/hca_male.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 40
+      },
+      "y": {
+        "min": 30,
+        "max": 54
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "hca_female": {
+      "file": "images/hca_female.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": -1.5,
+        "max": 40
+      },
+      "y": {
+        "min": 30,
+        "max": 54
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "height_7_18_male": {
+      "file": "images/height_7_18_male.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": 6.5,
+        "max": 19.6
+      },
+      "y": {
+        "min": 100,
+        "max": 200
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    },
+    "height_7_18_female": {
+      "file": "images/height_7_18_female.png",
+      "width": 1600,
+      "height": 1200,
+      "x": {
+        "min": 6.5,
+        "max": 19.6
+      },
+      "y": {
+        "min": 100,
+        "max": 180
+      },
+      "plot_px": {
+        "left": 136,
+        "right": 1536,
+        "top": 120,
+        "bottom": 1098
+      },
+      "note": "像素坐标原点为图片左上角；数据(x,y) -> px: px = left + (x-xmin)/(xmax-xmin)*(right-left); py = top + (1-(y-ymin)/(ymax-ymin))*(bottom-top)"
+    }
+  }
+}
