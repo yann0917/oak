@@ -38,6 +38,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# mediapipe wasm 运行时（postinstall 从 npm 包复制，不入库）
+/public/wasm
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

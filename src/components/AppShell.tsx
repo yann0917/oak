@@ -20,7 +20,7 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/moments", label: "时光相册", icon: "icon-camera" },
   { href: "/fees", label: "学费记录", icon: "icon-shopping" },
   { href: "/policies", label: "政策动态", icon: "icon-chat" },
-  { href: "/children", label: "孩子管理", icon: "icon-miles" },
+  { href: "/children", label: "子女管理", icon: "icon-miles" },
   { href: "/settings", label: "设置", icon: "icon-helicopter" },
 ];
 

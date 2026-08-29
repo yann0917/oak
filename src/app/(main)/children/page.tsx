@@ -88,7 +88,7 @@ export default function ChildrenPage() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <Title size="middle" color="app-teal">
-          孩子管理
+          子女管理
         </Title>
         <Button type="primary" onClick={openCreate}>
           添加孩子

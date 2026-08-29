@@ -35,7 +35,7 @@ export default function FeesPage() {
   if (!currentChild) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
-        请先在「孩子管理」中添加孩子
+        请先在「子女管理」中添加孩子
       </p>
     );
   }

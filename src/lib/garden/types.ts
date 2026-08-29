@@ -7,6 +7,19 @@ export const ACTIVITY_KEYS = [
 ] as const;
 export type ActivityKey = (typeof ACTIVITY_KEYS)[number];
 
+// 益智游戏会向学习记录写入成绩（activity 字段），但不用走 Q&A 出题引擎
+export const GAME_KEYS = [
+  "fruit-slice",
+  "ping-pong",
+  "gesture-dance",
+  "rock-paper-scissors",
+  "bubble-pop",
+  "jump-score",
+  "magic-wand",
+  "traffic-commander",
+] as const;
+export type GameKey = (typeof GAME_KEYS)[number];
+
 export type MathOp = "add" | "sub" | "mul" | "div";
 
 // 数学某档难度的参数：题型 + 数值上限（乘除法自动限制在九九口诀内）

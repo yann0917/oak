@@ -3,7 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { gardenRecords, gardenMastery } from "@/db/schema";
 import { requireAuth } from "@/lib/auth";
-import { ACTIVITY_KEYS, type ActivityKey } from "@/lib/garden/types";
+import { ACTIVITY_KEYS, GAME_KEYS, type ActivityKey, type GameKey } from "@/lib/garden/types";
 
 // GET 练习记录列表：?childId= 必填，?activity= 可选
 export async function GET(req: NextRequest) {
@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
   const durationSec = Math.max(0, Math.round(Number(body.durationSec) || 0));
   const results: ResultItem[] = Array.isArray(body.results) ? body.results : [];
 
-  if (!childId || !ACTIVITY_KEYS.includes(activity as ActivityKey)) {
+  const isActivity = ACTIVITY_KEYS.includes(activity as ActivityKey);
+  const isGame = GAME_KEYS.includes(activity as GameKey);
+  if (!childId || (!isActivity && !isGame)) {
     return NextResponse.json({ error: "参数不完整" }, { status: 400 });
   }
   if (results.length === 0 || results.some((r) => !r || typeof r.itemKey !== "string" || !r.itemKey)) {

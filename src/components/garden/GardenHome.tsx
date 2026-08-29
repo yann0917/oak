@@ -12,7 +12,9 @@ import {
   GARDEN_ACTIVITIES,
   GARDEN_STAGES,
 } from "@/lib/garden/registry";
+import { GAME_MAP } from "@/lib/games/registry";
 import { formatDuration } from "@/lib/garden/types";
+import GamesMenu from "@/components/games/GamesMenu";
 
 // 动态颜色一律走 Chip（color 为 any）；静态颜色才用 Tag 字面量
 const DIFF_COLOR: Record<string, string> = {
@@ -85,7 +87,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
   if (!currentChild) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
-        请先在「孩子管理」中添加孩子
+        请先在「子女管理」中添加孩子
       </p>
     );
   }
@@ -104,6 +106,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         onChange={(key) => setTab(key)}
         items={[
           { key: "cards", label: "活动卡片", children: renderCardsTab() },
+          { key: "games", label: "益智游戏", children: <GamesMenu /> },
           { key: "records", label: "学习记录", children: renderRecordsTab() },
         ]}
       />
@@ -206,7 +209,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         ) : (
           <div className="space-y-2">
             {records.map((r) => {
-              const meta = ACTIVITY_MAP[r.activity];
+              const meta = ACTIVITY_MAP[r.activity] ?? GAME_MAP[r.activity];
               const pct = r.total ? Math.round((r.correct / r.total) * 100) : 0;
               const wrong = parseJsonArray(r.wrongItems) as string[];
               return (
