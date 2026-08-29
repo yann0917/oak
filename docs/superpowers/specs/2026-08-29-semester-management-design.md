@@ -41,13 +41,13 @@
 
 ### 关联列
 
-`timetable_slots`、`learning_records`、`fee_records` 各新增 `semester_id INTEGER`（可空）。`src/db/schema.ts` 与 `src/db/index.ts` 的建表 SQL 同步更新；列补充用现有 `ensureColumn` 机制（`INTEGER` 可空）。
+`timetable_slots`、`learning_records`、`fee_records` 各新增 `semester_id INTEGER`（可空）。三张表的遗留 `term` 文本列在迁移完成后**删除**（含 Drizzle schema 定义、建表 SQL 与 `ensureColumn` 补列逻辑同步更新）；新库的建表 SQL 不再包含 `term`。`timetable_period_order` 的 `term`（节次顺序按学期名存储）保留，不受影响。环境为 better-sqlite3（SQLite 3.53.4），支持 `ALTER TABLE ... DROP COLUMN`，删除前用 `pragma table_info` 判断列是否存在。
 
 ## 旧数据自动迁移（一次性）
 
-- 启动时先探测 `sqlite_master` 中 `semesters` 表是否存在；仅当**本次启动首次创建**该表时执行迁移。
+- 启动时先探测 `sqlite_master` 中 `semesters` 表是否存在；仅当**本次启动首次创建**该表时执行数据迁移。
 - 对三张表分别取 `DISTINCT child_id, term`（`term != ''`）：按孩子+名称写入 `semesters`（stage 留空），随后 `UPDATE ... SET semester_id = (SELECT id FROM semesters WHERE child_id = t.child_id AND name = t.term) WHERE term != '' AND semester_id IS NULL`。
-- `timetable_slots.term`、`learning_records.term`、`fee_records.term` 文本列保留不删（旧数据展示兜底），新记录不再写入文本。
+- 回填完成后删除三张表的 `term` 列（`ALTER TABLE ... DROP COLUMN`，列存在才执行）。顺序必须为先回填后删列，避免旧数据丢失。
 
 ## API
 
@@ -80,7 +80,7 @@
 
 - 学期文本字段替换为 `{ name: "semesterId", label: "学期/所属学期", type: "select", refList: "semesters" }`，可留空。
 - `CrudSection.loadRefs` 扩展：`refList: "semesters"` 时按 `childId` 拉取 `/api/semesters?childId=`。
-- 列表显示按 ID 解析学期名（`semesters.find(...)?.name`，兜底旧字段 `item.term`），与教育经历页解析学校名同一模式。
+- 列表显示按 ID 解析学期名（`semesters.find(...)?.name`，解析不到时显示「（学期已删除）」），与教育经历页解析学校名同一模式。
 
 ## 错误处理
 
@@ -93,9 +93,9 @@
 - 不做学期复制/按学年批量生成。
 - 不做按日期自动推断所属学期。
 - 不把 `timetable_period_order` 迁移为按 `semester_id` 存储（保留按学期名 + 重命名同步机制）。
-- 不删除三张表的遗留 `term` 文本列。
 
 ## 验证方式
 
 1. `npm run build` 通过、无 TypeScript 错误。
 2. 浏览器手动验证：创建学期 → 课程表下拉可选/排课 → 学习情况、学费记录选学期 → 重命名学期后各处显示同步、节次顺序保留 → 删除被引用学期被拒绝、删除未引用学期成功 → 旧数据（已有学期文本）自动出现在学期管理中。
+3. 迁移自检：升级后三张表已无 `term` 列、`semester_id` 回填正确（`pragma table_info` 检查）。
