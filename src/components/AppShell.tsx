@@ -8,6 +8,7 @@ import type { IconName } from "animal-island-ui";
 import { useChildren } from "@/lib/childContext";
 import { api, calcAge } from "@/lib/api";
 import { WeatherBadge } from "./WeatherBadge";
+import { NotificationBell } from "./NotificationBell";
 
 const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "概览", icon: "icon-map" },
@@ -19,6 +20,7 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
   { href: "/health", label: "健康档案", icon: "icon-variant" },
   { href: "/moments", label: "时光相册", icon: "icon-camera" },
   { href: "/fees", label: "学费记录", icon: "icon-shopping" },
+  { href: "/reminders", label: "提醒中心", icon: "icon-miles" },
   { href: "/policies", label: "政策动态", icon: "icon-chat" },
   { href: "/children", label: "子女管理", icon: "icon-miles" },
   { href: "/settings", label: "设置", icon: "icon-helicopter" },
@@ -109,6 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Oak
               </span>
               <div className="ml-auto flex items-center gap-2">
+                <NotificationBell />
                 <WeatherBadge />
                 {currentChild && (
                   <>

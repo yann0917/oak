@@ -35,6 +35,16 @@ export async function requireAuth(req: NextRequest) {
   return null;
 }
 
+/**
+ * 用于需要用户身份的 API 路由（如按 user_id 隔离数据的查询）。
+ * 用法：const auth = requireUser(req); if ("response" in auth) return auth.response; const { uid } = auth.user;
+ */
+export function requireUser(req: NextRequest): { user: { uid: number; username: string } } | { response: NextResponse } {
+  const user = getAuthUser(req);
+  if (!user) return { response: NextResponse.json({ error: "未登录" }, { status: 401 }) };
+  return { user };
+}
+
 export async function setAuthCookie(token: string) {
   // Next.js 16：cookies() 为异步 API
   (await cookies()).set("token", token, {

@@ -222,6 +222,54 @@ CREATE TABLE IF NOT EXISTS garden_characters (
   created_at TEXT NOT NULL
 );
 
+-- 提醒中心
+CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  child_id INTEGER,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  schedule_type TEXT NOT NULL DEFAULT 'once',
+  cron_expr TEXT NOT NULL DEFAULT '',
+  time_of_day TEXT NOT NULL DEFAULT '09:00',
+  weekdays TEXT NOT NULL DEFAULT '',
+  month_days TEXT NOT NULL DEFAULT '',
+  target_date TEXT NOT NULL DEFAULT '',
+  advance_days TEXT NOT NULL DEFAULT '',
+  next_run_at TEXT NOT NULL,
+  timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reminder_rules (
+  reminder_id INTEGER PRIMARY KEY REFERENCES reminders(id) ON DELETE CASCADE,
+  channels TEXT NOT NULL DEFAULT 'wxpusher',
+  quiet_hours TEXT NOT NULL DEFAULT '',
+  min_interval_minutes INTEGER NOT NULL DEFAULT 60,
+  max_retries INTEGER NOT NULL DEFAULT 3,
+  fallback_channel TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS push_channels (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  type TEXT NOT NULL,
+  config TEXT NOT NULL DEFAULT '{}',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS push_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  reminder_id INTEGER,
+  channel TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  error TEXT NOT NULL DEFAULT '',
+  read INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 -- 按 child_id 查询是所有业务路由的主路径，补索引避免大表全扫描
 CREATE INDEX IF NOT EXISTS idx_enrollments_child ON enrollments(child_id);
 CREATE INDEX IF NOT EXISTS idx_child_teachers_child ON child_teachers(child_id);
@@ -241,7 +289,15 @@ CREATE INDEX IF NOT EXISTS idx_garden_characters_child ON garden_characters(chil
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_settings_child_activity ON garden_settings(child_id, activity);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_mastery_child_activity_item ON garden_mastery(child_id, activity, item_key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_characters_child_char ON garden_characters(child_id, char);
+
+-- 提醒中心：调度只看 idx_reminders_due，一条索引查询搞定到期检查
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(enabled, next_run_at);
+CREATE INDEX IF NOT EXISTS idx_push_logs_reminder ON push_logs(reminder_id);
+CREATE INDEX IF NOT EXISTS idx_push_logs_status ON push_logs(status, created_at);
 `);
+
+// 级联删除（reminders 删行时自动清 reminder_rules）
+sqlite.pragma("foreign_keys = ON");
 
 // 旧库字段迁移：缺列时补齐
 function ensureColumn(table: string, column: string, ddl: string) {
@@ -258,6 +314,46 @@ ensureColumn("schools", "intro", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("timetable_slots", "semester_id", "INTEGER");
 ensureColumn("learning_records", "semester_id", "INTEGER");
 ensureColumn("fee_records", "semester_id", "INTEGER");
+ensureColumn("push_logs", "content", "TEXT NOT NULL DEFAULT ''");
+
+// ===== 提醒中心多用户迁移：旧库（无 user_id 概念）补齐并按首个账号回填 =====
+// 首个账号（种子 admin）之外的旧数据均归属该账号
+const firstUserId = (sqlite.prepare("SELECT id FROM users ORDER BY id LIMIT 1").get() as any)?.id ?? 1;
+
+// push_channels 旧结构是 type 全局 UNIQUE，无法直接删约束（SQLite 不允许 DROP autoindex），
+// 重建一次改为「按用户唯一」；新库首次创建已含 user_id，跳过
+const pushChannelCols = (sqlite.pragma("table_info(push_channels)") as any[]).map((c) => c.name);
+if (!pushChannelCols.includes("user_id")) {
+  sqlite.exec("ALTER TABLE push_channels RENAME TO push_channels_old");
+  sqlite.exec(`CREATE TABLE push_channels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    type TEXT NOT NULL,
+    config TEXT NOT NULL DEFAULT '{}',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  )`);
+  sqlite
+    .prepare(
+      "INSERT INTO push_channels (id, user_id, type, config, enabled, created_at) SELECT id, ?, type, config, enabled, created_at FROM push_channels_old"
+    )
+    .run(firstUserId);
+  sqlite.exec("DROP TABLE push_channels_old");
+}
+
+ensureColumn("reminders", "user_id", "INTEGER");
+ensureColumn("push_logs", "user_id", "INTEGER");
+ensureColumn("push_channels", "user_id", "INTEGER");
+sqlite.prepare("UPDATE reminders SET user_id = ? WHERE user_id IS NULL").run(firstUserId);
+sqlite.prepare("UPDATE push_logs SET user_id = ? WHERE user_id IS NULL").run(firstUserId);
+sqlite.prepare("UPDATE push_channels SET user_id = ? WHERE user_id IS NULL").run(firstUserId);
+
+// 多用户相关的索引必须在列迁移后创建（旧库启动时列尚不存在）
+sqlite.exec(`
+CREATE INDEX IF NOT EXISTS idx_reminders_user ON reminders(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_push_logs_user ON push_logs(user_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_channels_user_type ON push_channels(user_id, type);
+`);
 
 // 旧学期文本迁移（幂等）：term 列还在时，把遗留学期文本按孩子补建入学学期并回填 semester_id，然后删除 term 列
 for (const table of ["timetable_slots", "learning_records", "fee_records"]) {

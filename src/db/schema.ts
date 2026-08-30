@@ -3,6 +3,7 @@ import {
   text,
   integer,
   real,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
@@ -236,5 +237,65 @@ export const gardenCharacters = sqliteTable("garden_characters", {
   pinyin: text("pinyin").notNull().default(""), // 带声调，服务端 pinyin-pro 自动注音
   word: text("word").notNull().default(""), // 组词示例，可空
   tier: integer("tier").notNull().default(1), // 难度档 1|2|3
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// ===== 提醒中心 =====
+
+// 提醒主表：调度只认 next_run_at，预计算落库，进程重启零丢失
+export const reminders = sqliteTable("reminders", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（为多账号预留）
+  childId: integer("child_id"), // 关联孩子（可空，模板渲染 {{child}} 用）
+  title: text("title").notNull(),
+  content: text("content").notNull().default(""), // 支持 {{child}} {{days_left}} {{target_date}}
+  scheduleType: text("schedule_type").notNull().default("once"), // once|daily|weekly|monthly|cron
+  cronExpr: text("cron_expr").notNull().default(""),
+  timeOfDay: text("time_of_day").notNull().default("09:00"), // daily/weekly/monthly 的触发时刻 HH:mm
+  weekdays: text("weekdays").notNull().default(""), // weekly: '1,3,5'（1=周一）
+  monthDays: text("month_days").notNull().default(""), // monthly: '1,15'
+  targetDate: text("target_date").notNull().default(""), // YYYY-MM-DD 事件/截止日（once 提醒与提前预告用）
+  advanceDays: text("advance_days").notNull().default(""), // '7,3,1' 提前 N 天预告，逗号分隔（已按序展开进 next_run_at）
+  nextRunAt: text("next_run_at").notNull(),
+  timezone: text("timezone").notNull().default("Asia/Shanghai"),
+  enabled: integer("enabled").notNull().default(1),
+  retryCount: integer("retry_count").notNull().default(0), // 连续失败重试次数（退避 30s/2m/10m）
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 推送规则（一对一，避免过度设计成多对多）
+export const reminderRules = sqliteTable("reminder_rules", {
+  reminderId: integer("reminder_id").primaryKey().references(() => reminders.id, { onDelete: "cascade" }),
+  channels: text("channels").notNull().default("wxpusher"), // 'wxpusher,inapp' 逗号分隔
+  quietHours: text("quiet_hours").notNull().default(""), // '22:00-07:00' 静默期顺延
+  minIntervalMinutes: integer("min_interval_minutes").notNull().default(60),
+  maxRetries: integer("max_retries").notNull().default(3),
+  fallbackChannel: text("fallback_channel").notNull().default(""), // 主渠道全挂后的兜底渠道
+});
+
+// 渠道绑定（每用户每种渠道一行配置）
+export const pushChannels = sqliteTable(
+  "push_channels",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1), // 归属用户
+    type: text("type").notNull(), // wxpusher|serverchan|email|inapp
+    config: text("config").notNull().default("{}"), // JSON: {appToken,uid} / {sendKey} / {apiKey,from,to}
+    enabled: integer("enabled").notNull().default(1),
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [uniqueIndex("idx_push_channels_user_type").on(t.userId, t.type)]
+);
+
+// 发送流水：送达状态可查、节流判断、排障全靠它
+export const pushLogs = sqliteTable("push_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（站内通知按用户读取）
+  reminderId: integer("reminder_id"), // 测试推送/渠道测试可为空
+  channel: text("channel").notNull().default(""),
+  status: text("status").notNull(), // sent|failed|muted
+  content: text("content").notNull().default(""), // 发送的消息正文（站内通知栏展示）
+  error: text("error").notNull().default(""),
+  read: integer("read").notNull().default(0), // 站内通知已读标记
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
