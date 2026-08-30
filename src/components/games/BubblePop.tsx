@@ -22,9 +22,20 @@ import { toast } from "@/lib/toast";
 import { formatDuration } from "@/lib/garden/types";
 
 const GAME_SECONDS = 60;
-const MAX_BUBBLES = 9;
+const MAX_BUBBLES = 6; // 同屏最多 6 个，避免泡泡堆积满屏
+const SPAWN_INTERVAL = 0.85; // 每 0.85 秒冒 1 个新泡泡
 const POP_HOLD_MS = 350; // 摄像头模式按住的时长
 const COMBO_WINDOW = 2.5;
+
+// 动物岛配色：取自 animal-island-ui 官方 NookPhone Card 色板，text 为官方配套文字色
+const BUBBLE_COLORS = [
+  { base: "#82d5bb", text: "#ffffff" }, // 薄荷
+  { base: "#f7cd67", text: "#725d42" }, // 奶油黄（深棕字）
+  { base: "#f8a6b2", text: "#ffffff" }, // 粉
+  { base: "#e59266", text: "#ffffff" }, // 珊瑚橙
+  { base: "#889df0", text: "#ffffff" }, // 蓝
+  { base: "#8ac68a", text: "#ffffff" }, // 绿
+] as const;
 
 type InputMode = "camera" | "mouse";
 type Phase = "intro" | "loading" | "playing" | "done";
@@ -36,7 +47,7 @@ interface Bubble {
   y: number;
   vy: number;
   r: number;
-  hue: number;
+  color: { base: string; text: string };
   wobble: number; // 相位
   dead: boolean;
   popped?: boolean;
@@ -48,7 +59,7 @@ interface Particle {
   vx: number;
   vy: number;
   r: number;
-  hue: number;
+  color: string;
 }
 
 interface FloatText {
@@ -108,6 +119,7 @@ export default function BubblePop() {
   const startAtRef = useRef(0);
   const nextIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
+  const lastColorRef = useRef(-1); // 上一次泡泡色板下标，避免连着两个同色
   const holdRef = useRef<{ id: number; since: number } | null>(null); // 按压中的泡泡
   const resultsRef = useRef<ResultItem[]>([]);
   const savedRef = useRef(false);
@@ -285,7 +297,7 @@ export default function BubblePop() {
   function update(dt: number, w: number, h: number, now: number) {
     const t = now / 1000;
     const alive = bubblesRef.current.filter((b) => !b.dead).length;
-    if (t - lastSpawnRef.current > 0.55 && alive < MAX_BUBBLES) {
+    if (t - lastSpawnRef.current > SPAWN_INTERVAL && alive < MAX_BUBBLES) {
       lastSpawnRef.current = t;
       spawnBubble(w, h);
     }
@@ -337,14 +349,28 @@ export default function BubblePop() {
   function spawnBubble(w: number, h: number) {
     const word = pool[Math.floor(Math.random() * pool.length)];
     const r = Math.max(44, Math.min(58, Math.min(w, h) * 0.12));
+    // 多试几个横向位置，避免新泡泡叠在旧泡泡上（堆积感）
+    let pick = -1;
+    for (let i = 0; i < 8; i++) {
+      const cand = w * (0.1 + Math.random() * 0.8);
+      pick = cand;
+      const ok = bubblesRef.current.every(
+        (b) => b.dead || Math.hypot(b.x - cand, h + r - b.y) >= r + b.r + 14
+      );
+      if (ok) break;
+    }
+    // 色板随机取色，且不与上一个泡泡同色
+    let ci = Math.floor(Math.random() * BUBBLE_COLORS.length);
+    if (ci === lastColorRef.current) ci = (ci + 1) % BUBBLE_COLORS.length;
+    lastColorRef.current = ci;
     bubblesRef.current.push({
       id: nextIdRef.current++,
       w: word,
-      x: w * (0.1 + Math.random() * 0.8),
+      x: pick,
       y: h + r,
       vy: -(26 + Math.random() * 22),
       r,
-      hue: Math.floor(Math.random() * 360),
+      color: { base: BUBBLE_COLORS[ci].base, text: BUBBLE_COLORS[ci].text },
       wobble: Math.random() * Math.PI * 2,
       dead: false,
     });
@@ -373,7 +399,7 @@ export default function BubblePop() {
         vx: Math.cos(a) * sp,
         vy: Math.sin(a) * sp - 40,
         r: 3 + Math.random() * 4,
-        hue: b.hue,
+        color: b.color.base,
       });
     }
     floatsRef.current.push({
@@ -424,29 +450,55 @@ export default function BubblePop() {
 
     for (const b of bubblesRef.current) {
       const bx = b.x + Math.sin(b.wobble) * 12;
-      // 泡泡球面
+      // 泡泡球体：径向渐变（左上光源 + 边缘加深）做出通透体积感
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      const grad = ctx.createRadialGradient(
+        bx - b.r * 0.3,
+        b.y - b.r * 0.35,
+        b.r * 0.1,
+        bx,
+        b.y,
+        b.r
+      );
+      grad.addColorStop(0, mixColor(b.color.base, "#ffffff", 0.6));
+      grad.addColorStop(0.5, b.color.base);
+      grad.addColorStop(1, mixColor(b.color.base, "#000000", 0.15));
       ctx.beginPath();
       ctx.arc(bx, b.y, b.r, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${b.hue}, 70%, 72%, 0.30)`;
+      ctx.fillStyle = grad;
       ctx.fill();
-      ctx.strokeStyle = `hsla(${b.hue}, 80%, 85%, 0.9)`;
-      ctx.lineWidth = 3;
+      ctx.restore();
+      // 柔边描边
+      ctx.strokeStyle = mixColor(b.color.base, "#ffffff", 0.35);
+      ctx.lineWidth = 2.5;
       ctx.stroke();
-      // 高光
+      // 主高光：左上小亮点
       ctx.beginPath();
-      ctx.arc(bx - b.r * 0.35, b.y - b.r * 0.38, b.r * 0.16, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.arc(bx - b.r * 0.35, b.y - b.r * 0.38, b.r * 0.14, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
       ctx.fill();
+      // 副高光：右下月牙反射
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(bx, b.y, b.r * 0.78, Math.PI * 0.15, Math.PI * 0.85);
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.lineWidth = b.r * 0.09;
+      ctx.stroke();
+      ctx.restore();
       // 内容：emoji + 单词 + 中文
       ctx.textAlign = "center";
       ctx.font = `${Math.round(b.r * 0.62)}px serif`;
       ctx.fillText(b.w.emoji, bx, b.y - b.r * 0.28);
       ctx.font = `800 ${Math.round(b.r * 0.34)}px sans-serif`;
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = b.color.text;
       ctx.fillText(b.w.en, bx, b.y + b.r * 0.2);
       ctx.font = `600 ${Math.round(b.r * 0.24)}px sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillStyle = b.color.text;
+      ctx.globalAlpha = 0.95;
       ctx.fillText(b.w.zh, bx, b.y + b.r * 0.52);
+      ctx.globalAlpha = 1;
       // 按住时画进度环
       if (holdRef.current?.id === b.id && modeRef.current === "camera") {
         const prog = Math.min(1, (now - holdRef.current.since) / POP_HOLD_MS);
@@ -463,7 +515,7 @@ export default function BubblePop() {
     for (const p of particlesRef.current) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `hsl(${p.hue}, 80%, 75%)`;
+      ctx.fillStyle = p.color;
       ctx.fill();
     }
     ctx.globalAlpha = 1;
@@ -646,6 +698,15 @@ export default function BubblePop() {
       )}
     </div>
   );
+}
+
+// 将 #rrggbb 颜色按 ratio 与目标色线性混合（ratio 0 为原色，1 为目标色）
+function mixColor(hexA: string, hexB: string, ratio: number): string {
+  const a = hexA.replace("#", "");
+  const b = hexB.replace("#", "");
+  const mix = (i: number, j: number) =>
+    Math.round(parseInt(a.slice(i, j), 16) + (parseInt(b.slice(i, j), 16) - parseInt(a.slice(i, j), 16)) * ratio);
+  return `rgb(${mix(0, 2)}, ${mix(2, 4)}, ${mix(4, 6)})`;
 }
 
 function StarRow(score: number): React.ReactNode {

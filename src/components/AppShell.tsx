@@ -8,7 +8,6 @@ import type { IconName } from "animal-island-ui";
 import { useChildren } from "@/lib/childContext";
 import { useProfile, type ProfileMenu } from "@/lib/profileContext";
 import { api, calcAge } from "@/lib/api";
-import { WeatherBadge } from "./WeatherBadge";
 import { NotificationBell } from "./NotificationBell";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -161,7 +160,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
               <div className="ml-auto flex items-center gap-2">
                 <NotificationBell />
-                <WeatherBadge />
                 {currentChild && (
                   <>
                     <span
