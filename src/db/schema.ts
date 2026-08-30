@@ -321,6 +321,73 @@ export const pushLogs = sqliteTable("push_logs", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+// ===== 错题本/笔记（FSRS 间隔复习）=====
+
+// 笔记本分组：如「数学错题」「英语笔记」
+export const notebooks = sqliteTable("notebooks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  name: text("name").notNull(),
+  icon: text("icon").notNull().default(""),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 笔记/错题：content 为 novel(TipTap) JSON 字符串；question/answer 是复习卡正反面（Markdown + $公式）
+export const notes = sqliteTable("notes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  notebookId: integer("notebook_id").references(() => notebooks.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  content: text("content").notNull().default(""),
+  question: text("question").notNull().default(""),
+  answer: text("answer").notNull().default(""),
+  tags: text("tags").notNull().default("[]"), // JSON 字符串数组
+  source: text("source").notNull().default(""),
+  enabled: integer("enabled").notNull().default(1), // 是否参与复习
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// FSRS 卡状态（与 notes 1:1），调度字段平铺
+export const reviewCards = sqliteTable("review_cards", {
+  noteId: integer("note_id").primaryKey().references(() => notes.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  due: text("due").notNull(), // ISO 时间
+  stability: real("stability").notNull().default(0),
+  difficulty: real("difficulty").notNull().default(0),
+  elapsedDays: integer("elapsed_days").notNull().default(0),
+  scheduledDays: integer("scheduled_days").notNull().default(0),
+  reps: integer("reps").notNull().default(0),
+  lapses: integer("lapses").notNull().default(0),
+  state: integer("state").notNull().default(0), // 0 New 1 Learning 2 Review 3 Relearning
+  learningSteps: integer("learning_steps").notNull().default(0),
+  lastReview: text("last_review"), // ISO 时间，可空
+});
+
+// 复习流水：评分/状态留痕，统计与未来画像用
+export const reviewLogs = sqliteTable("review_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  noteId: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }),
+  rating: integer("rating").notNull(), // 1 Again 2 Hard 3 Good 4 Easy
+  state: integer("state").notNull(),
+  due: text("due").notNull(),
+  stability: real("stability").notNull().default(0),
+  difficulty: real("difficulty").notNull().default(0),
+  elapsedDays: integer("elapsed_days").notNull().default(0),
+  scheduledDays: integer("scheduled_days").notNull().default(0),
+  reviewedAt: text("reviewed_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 待办（实用工具）
+export const todos = sqliteTable("todos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  title: text("title").notNull(),
+  done: integer("done").notNull().default(0),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 // ===== 权限（RBAC）：业务表即策略源，Casbin 不建自己的表 =====
 
 export const roles = sqliteTable("roles", {

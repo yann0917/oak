@@ -292,6 +292,64 @@ CREATE TABLE IF NOT EXISTS push_logs (
   created_at TEXT NOT NULL
 );
 
+-- 错题本/笔记（FSRS 间隔复习）
+CREATE TABLE IF NOT EXISTS notebooks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL,
+  icon TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  notebook_id INTEGER REFERENCES notebooks(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  question TEXT NOT NULL DEFAULT '',
+  answer TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '[]',
+  source TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS review_cards (
+  note_id INTEGER PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  due TEXT NOT NULL,
+  stability REAL NOT NULL DEFAULT 0,
+  difficulty REAL NOT NULL DEFAULT 0,
+  elapsed_days INTEGER NOT NULL DEFAULT 0,
+  scheduled_days INTEGER NOT NULL DEFAULT 0,
+  reps INTEGER NOT NULL DEFAULT 0,
+  lapses INTEGER NOT NULL DEFAULT 0,
+  state INTEGER NOT NULL DEFAULT 0,
+  learning_steps INTEGER NOT NULL DEFAULT 0,
+  last_review TEXT
+);
+
+CREATE TABLE IF NOT EXISTS review_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL,
+  state INTEGER NOT NULL,
+  due TEXT NOT NULL,
+  stability REAL NOT NULL DEFAULT 0,
+  difficulty REAL NOT NULL DEFAULT 0,
+  elapsed_days INTEGER NOT NULL DEFAULT 0,
+  scheduled_days INTEGER NOT NULL DEFAULT 0,
+  reviewed_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS todos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  title TEXT NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 -- 权限（RBAC）：业务表即策略源
 CREATE TABLE IF NOT EXISTS roles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -369,6 +427,8 @@ ensureColumn("fee_records", "semester_id", "INTEGER");
 ensureColumn("push_logs", "content", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("users", "status", "INTEGER NOT NULL DEFAULT 1");
+// review_cards 曾在建表后补过 learning_steps 列（存量库升级）
+ensureColumn("review_cards", "learning_steps", "INTEGER NOT NULL DEFAULT 0");
 
 // 业务表按用户归属（存量数据默认归首个账号 admin）
 ensureColumn("children", "user_id", "INTEGER NOT NULL DEFAULT 1");
@@ -449,6 +509,14 @@ CREATE INDEX IF NOT EXISTS idx_children_user ON children(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_schools_user ON schools(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_teachers_user ON teachers(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_policy_notes_user ON policy_notes(user_id, id);
+
+-- 错题本/笔记：用户隔离查询 + 复习到期调度主路径
+CREATE INDEX IF NOT EXISTS idx_notebooks_user ON notebooks(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_notes_notebook ON notes(user_id, notebook_id);
+CREATE INDEX IF NOT EXISTS idx_review_cards_user_due ON review_cards(user_id, due);
+CREATE INDEX IF NOT EXISTS idx_review_logs_user_reviewed ON review_logs(user_id, reviewed_at);
+CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id, id);
 `);
 
 // 旧学期文本迁移（幂等）：term 列还在时，把遗留学期文本按孩子补建入学学期并回填 semester_id，然后删除 term 列

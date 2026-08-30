@@ -93,6 +93,81 @@ input:-webkit-autofill:focus {
   }
 }
 
+/* ===== 笔记/错题正文（novel 编辑器与详情阅读态共用） ===== */
+.note-prose {
+  line-height: 1.8;
+  font-size: 0.95rem;
+  color: var(--animal-text-color);
+  overflow-wrap: break-word;
+}
+.note-prose p {
+  margin: 0.6em 0;
+}
+.note-prose h1,
+.note-prose h2,
+.note-prose h3,
+.note-prose h4 {
+  font-weight: 800;
+  line-height: 1.4;
+  margin: 0.9em 0 0.4em;
+}
+.note-prose h1 { font-size: 1.4rem; }
+.note-prose h2 { font-size: 1.25rem; }
+.note-prose h3 { font-size: 1.1rem; }
+.note-prose h4 { font-size: 1rem; }
+.note-prose ul,
+.note-prose ol {
+  padding-left: 1.4em;
+  margin: 0.5em 0;
+}
+.note-prose ul { list-style: disc; }
+.note-prose ol { list-style: decimal; }
+.note-prose li { margin: 0.25em 0; }
+.note-prose blockquote {
+  border-left: 4px solid var(--animal-border-color-light);
+  padding-left: 0.8em;
+  margin: 0.6em 0;
+  color: var(--animal-text-color-secondary);
+}
+.note-prose pre {
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--animal-bg-color-secondary);
+  overflow-x: auto;
+}
+.note-prose code {
+  background: var(--animal-bg-color-secondary);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+.note-prose pre code {
+  background: none;
+  padding: 0;
+}
+.note-prose hr {
+  border: none;
+  border-top: 2px dashed var(--animal-border-color-light);
+  margin: 1em 0;
+}
+.note-prose img {
+  max-width: 100%;
+  border-radius: 0.75rem;
+}
+.note-prose .katex-display {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+/* 编辑器空内容占位提示 */
+.note-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--animal-text-color-disabled);
+  pointer-events: none;
+}
+
 /* ===== 生长标准测评：十字准线 + 脉冲定位点 ===== */
 .g-cross-v,
 .g-cross-h {

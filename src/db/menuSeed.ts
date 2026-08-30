@@ -23,6 +23,19 @@ export const menuSeedDefs: MenuSeedNode[] = [
   { type: "menu", name: "政策动态", path: "/policies", icon: "icon-chat", sort: 11 },
   { type: "menu", name: "子女管理", path: "/children", icon: "icon-miles", sort: 12 },
   { type: "menu", name: "设置", path: "/settings", icon: "icon-helicopter", sort: 13 },
+  { type: "menu", name: "错题本/笔记", path: "/notes", icon: "icon-critterpedia", sort: 15 },
+  {
+    type: "dir",
+    name: "实用工具",
+    path: "/tools",
+    icon: "icon-diy",
+    sort: 14,
+    children: [
+      { type: "menu", name: "白板", path: "/tools/whiteboard", icon: "icon-variant", sort: 1 },
+      { type: "menu", name: "待办", path: "/tools/todo", icon: "icon-miles", sort: 2 },
+      { type: "menu", name: "番茄钟", path: "/tools/timer", icon: "icon-camera", sort: 3 },
+    ],
+  },
   {
     type: "dir",
     name: "系统管理",

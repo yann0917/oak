@@ -23,7 +23,12 @@ export function ensurePermissionSeeds(db: Db) {
     const existing = db.all(
       sql`SELECT id FROM menus WHERE parent_id IS ${parentId} AND type = ${node.type} AND name = ${node.name}`
     ) as any[];
-    if (existing.length) return existing[0].id as number;
+    if (existing.length) {
+      // 已存在（如旧库早建的目录）也继续种它的 children，否则后代新菜单永远补不进来
+      const id = existing[0].id as number;
+      for (const child of node.children ?? []) seedMenu(child, id);
+      return id;
+    }
     const inserted = db.run(
       sql`INSERT INTO menus (parent_id, type, name, path, icon, perms, sort, visible) VALUES (${parentId}, ${node.type}, ${node.name}, ${node.path ?? ""}, ${node.icon ?? ""}, ${node.perms ?? ""}, ${node.sort ?? 0}, 1)`
     ) as any;

@@ -284,6 +284,51 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "时光相册·修改"
   },
   {
+    "resource": "notebooks",
+    "perms": "api:notebooks:create",
+    "label": "笔记本·新增"
+  },
+  {
+    "resource": "notebooks",
+    "perms": "api:notebooks:delete",
+    "label": "笔记本·删除"
+  },
+  {
+    "resource": "notebooks",
+    "perms": "api:notebooks:list",
+    "label": "笔记本·查看列表"
+  },
+  {
+    "resource": "notebooks",
+    "perms": "api:notebooks:update",
+    "label": "笔记本·修改"
+  },
+  {
+    "resource": "notes",
+    "perms": "api:notes:create",
+    "label": "错题/笔记·新增"
+  },
+  {
+    "resource": "notes",
+    "perms": "api:notes:delete",
+    "label": "错题/笔记·删除"
+  },
+  {
+    "resource": "notes",
+    "perms": "api:notes:detail",
+    "label": "错题/笔记·查看详情"
+  },
+  {
+    "resource": "notes",
+    "perms": "api:notes:list",
+    "label": "错题/笔记·查看列表"
+  },
+  {
+    "resource": "notes",
+    "perms": "api:notes:update",
+    "label": "错题/笔记·修改"
+  },
+  {
     "resource": "policy-notes",
     "perms": "api:policy-notes:create",
     "label": "政策动态·新增"
@@ -379,6 +424,16 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "提醒中心·修改"
   },
   {
+    "resource": "review",
+    "perms": "api:review:create",
+    "label": "错题复习·新增"
+  },
+  {
+    "resource": "review",
+    "perms": "api:review:list",
+    "label": "错题复习·查看列表"
+  },
+  {
     "resource": "schools",
     "perms": "api:schools:create",
     "label": "学校·新增"
@@ -417,6 +472,11 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "semesters",
     "perms": "api:semesters:update",
     "label": "学期·修改"
+  },
+  {
+    "resource": "stats",
+    "perms": "api:stats:list",
+    "label": "复习统计·查看列表"
   },
   {
     "resource": "teachers",
@@ -472,6 +532,26 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "timetable-slots",
     "perms": "api:timetable-slots:update",
     "label": "课程表·修改"
+  },
+  {
+    "resource": "todos",
+    "perms": "api:todos:create",
+    "label": "待办·新增"
+  },
+  {
+    "resource": "todos",
+    "perms": "api:todos:delete",
+    "label": "待办·删除"
+  },
+  {
+    "resource": "todos",
+    "perms": "api:todos:list",
+    "label": "待办·查看列表"
+  },
+  {
+    "resource": "todos",
+    "perms": "api:todos:update",
+    "label": "待办·修改"
   },
   {
     "resource": "tts",
