@@ -1,4 +1,4 @@
 import { feeRecords } from "@/db/schema";
 import { makeCollectionHandlers } from "@/lib/crud";
 
-export const { GET, POST } = makeCollectionHandlers(feeRecords, { childScoped: true });
+export const { GET, POST } = makeCollectionHandlers(feeRecords, { childScoped: true, api: "fee-records" });

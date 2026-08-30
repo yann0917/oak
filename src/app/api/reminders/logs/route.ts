@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { pushLogs, reminders } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 
 /** 发送流水列表：送达状态、失败原因一目了然。?limit=50&channel=&status=&reminderId= */
 export async function GET(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:reminders:logs-get");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Number(searchParams.get("limit") ?? 50) || 50, 200);
 

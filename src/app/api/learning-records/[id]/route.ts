@@ -1,4 +1,4 @@
 import { learningRecords } from "@/db/schema";
 import { makeItemHandlers } from "@/lib/crud";
 
-export const { GET, PUT, DELETE } = makeItemHandlers(learningRecords);
+export const { GET, PUT, DELETE } = makeItemHandlers(learningRecords, { api: "learning-records" });

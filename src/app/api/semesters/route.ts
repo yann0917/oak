@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { semesters } from "@/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("semesters", "list", req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const childId = searchParams.get("childId");
   if (!childId) {
@@ -15,15 +15,15 @@ export async function GET(req: NextRequest) {
   const rows = db
     .select()
     .from(semesters)
-    .where(eq(semesters.childId, Number(childId)))
+    .where(and(eq(semesters.childId, Number(childId)), eq(semesters.userId, user!.id)))
     .orderBy(asc(semesters.id))
     .all();
   return NextResponse.json(rows);
 }
 
 export async function POST(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("semesters", "create", req);
+  if (denied) return denied;
   const body = await req.json();
   const { id: _ignored, ...values } = body;
   if (!values.childId || !values.name?.trim()) {
@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
   const dup = db
     .select()
     .from(semesters)
-    .where(and(eq(semesters.childId, Number(values.childId)), eq(semesters.name, values.name)))
+    .where(and(eq(semesters.childId, Number(values.childId)), eq(semesters.userId, user!.id), eq(semesters.name, values.name)))
     .get();
   if (dup) {
     return NextResponse.json({ error: "该学期名称已存在" }, { status: 400 });
   }
-  const row = db.insert(semesters).values(values).returning().get();
+  const row = db.insert(semesters).values({ ...values, userId: user!.id }).returning().get();
   return NextResponse.json(row, { status: 201 });
 }

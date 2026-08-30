@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { reminders } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 import { dispatchNow } from "@/lib/reminders/engine";
 
 /** 立即测试推送：走真实渠道发送，跳过静默期/节流，不动计划状态 */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:reminders:test-post");
+  if (denied) return denied;
   const { id } = await ctx.params;
   const r = db
     .select()

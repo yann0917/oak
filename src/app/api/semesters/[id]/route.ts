@@ -8,26 +8,26 @@ import {
   timetablePeriodOrder,
   timetableSlots,
 } from "@/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("semesters", "detail", req);
+  if (denied) return denied;
   const { id } = await ctx.params;
-  const row = db.select().from(semesters).where(eq(semesters.id, Number(id))).get();
+  const row = db.select().from(semesters).where(and(eq(semesters.id, Number(id)), eq(semesters.userId, user!.id))).get();
   if (!row) return NextResponse.json({ error: "记录不存在" }, { status: 404 });
   return NextResponse.json(row);
 }
 
 export async function PUT(req: NextRequest, ctx: Ctx) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("semesters", "update", req);
+  if (denied) return denied;
   const { id } = await ctx.params;
   const body = await req.json();
   const { id: _ignored, ...values } = body;
-  const current = db.select().from(semesters).where(eq(semesters.id, Number(id))).get();
+  const current = db.select().from(semesters).where(and(eq(semesters.id, Number(id)), eq(semesters.userId, user!.id))).get();
   if (!current) return NextResponse.json({ error: "记录不存在" }, { status: 404 });
   if (values.name != null) {
     values.name = String(values.name).trim();
@@ -52,7 +52,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   const row = db
     .update(semesters)
     .set(values)
-    .where(eq(semesters.id, Number(id)))
+    .where(and(eq(semesters.id, Number(id)), eq(semesters.userId, user!.id)))
     .returning()
     .get();
   // 学期改名后同步节次顺序表（按学期名存储），保留已拖拽的顺序
@@ -62,6 +62,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       .where(
         and(
           eq(timetablePeriodOrder.childId, current.childId),
+          eq(timetablePeriodOrder.userId, user!.id),
           eq(timetablePeriodOrder.term, current.name)
         )
       )
@@ -71,10 +72,10 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, ctx: Ctx) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("semesters", "delete", req);
+  if (denied) return denied;
   const { id } = await ctx.params;
-  const current = db.select().from(semesters).where(eq(semesters.id, Number(id))).get();
+  const current = db.select().from(semesters).where(and(eq(semesters.id, Number(id)), eq(semesters.userId, user!.id))).get();
   if (!current) return NextResponse.json({ error: "记录不存在" }, { status: 404 });
   const used =
     db.select().from(timetableSlots).where(eq(timetableSlots.semesterId, current.id)).get() ||
@@ -86,11 +87,12 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
       { status: 400 }
     );
   }
-  db.delete(semesters).where(eq(semesters.id, current.id)).run();
+  db.delete(semesters).where(and(eq(semesters.id, current.id), eq(semesters.userId, user!.id))).run();
   db.delete(timetablePeriodOrder)
     .where(
       and(
         eq(timetablePeriodOrder.childId, current.childId),
+        eq(timetablePeriodOrder.userId, user!.id),
         eq(timetablePeriodOrder.term, current.name)
       )
     )

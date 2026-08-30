@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { reminderRules, reminders } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 import { computeNextRunAt, type Reminder } from "@/lib/reminders/engine";
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:reminders:update");
+  if (denied) return denied;
   const { id } = await ctx.params;
   const existing = db
     .select()
@@ -63,7 +65,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:reminders:delete");
+  if (denied) return denied;
   const { id } = await ctx.params;
   // 只允许操作本人提醒；FK 级联删除 reminder_rules；push_logs 保留供排障
   const row = db

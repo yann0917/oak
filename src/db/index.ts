@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 import * as schema from "./schema";
+import { ensurePermissionSeeds } from "./seed";
 
 const dataDir = path.join(process.cwd(), "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -18,10 +19,13 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   display_name TEXT NOT NULL DEFAULT '',
+  is_admin INTEGER NOT NULL DEFAULT 0,
+  status INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS children (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   name TEXT NOT NULL,
   nickname TEXT NOT NULL DEFAULT '',
   gender TEXT NOT NULL DEFAULT 'female',
@@ -32,6 +36,7 @@ CREATE TABLE IF NOT EXISTS children (
 );
 CREATE TABLE IF NOT EXISTS schools (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   name TEXT NOT NULL,
   type TEXT NOT NULL DEFAULT '幼儿园',
   address TEXT NOT NULL DEFAULT '',
@@ -43,6 +48,7 @@ CREATE TABLE IF NOT EXISTS schools (
 );
 CREATE TABLE IF NOT EXISTS enrollments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   school_id INTEGER NOT NULL,
   stage TEXT NOT NULL DEFAULT '幼儿园',
@@ -55,6 +61,7 @@ CREATE TABLE IF NOT EXISTS enrollments (
 );
 CREATE TABLE IF NOT EXISTS teachers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   name TEXT NOT NULL,
   subject TEXT NOT NULL DEFAULT '',
   school_id INTEGER,
@@ -64,6 +71,7 @@ CREATE TABLE IF NOT EXISTS teachers (
 );
 CREATE TABLE IF NOT EXISTS child_teachers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   teacher_id INTEGER NOT NULL,
   stage TEXT NOT NULL DEFAULT '',
@@ -73,6 +81,7 @@ CREATE TABLE IF NOT EXISTS child_teachers (
 );
 CREATE TABLE IF NOT EXISTS learning_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   date TEXT NOT NULL DEFAULT '',
   semester_id INTEGER,
@@ -84,6 +93,7 @@ CREATE TABLE IF NOT EXISTS learning_records (
 );
 CREATE TABLE IF NOT EXISTS growth_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   date TEXT NOT NULL,
   height REAL,
@@ -93,6 +103,7 @@ CREATE TABLE IF NOT EXISTS growth_records (
 );
 CREATE TABLE IF NOT EXISTS health_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   type TEXT NOT NULL DEFAULT '体检',
   date TEXT NOT NULL DEFAULT '',
@@ -103,6 +114,7 @@ CREATE TABLE IF NOT EXISTS health_records (
 );
 CREATE TABLE IF NOT EXISTS activities (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT '',
@@ -116,6 +128,7 @@ CREATE TABLE IF NOT EXISTS activities (
 );
 CREATE TABLE IF NOT EXISTS moments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   date TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL,
@@ -126,6 +139,7 @@ CREATE TABLE IF NOT EXISTS moments (
 );
 CREATE TABLE IF NOT EXISTS timetable_slots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   semester_id INTEGER,
   day TEXT NOT NULL DEFAULT '周一',
@@ -138,6 +152,7 @@ CREATE TABLE IF NOT EXISTS timetable_slots (
 );
 CREATE TABLE IF NOT EXISTS timetable_period_order (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   term TEXT NOT NULL,
   period TEXT NOT NULL,
@@ -146,6 +161,7 @@ CREATE TABLE IF NOT EXISTS timetable_period_order (
 );
 CREATE TABLE IF NOT EXISTS semesters (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   year TEXT NOT NULL DEFAULT '',
@@ -157,6 +173,7 @@ CREATE TABLE IF NOT EXISTS semesters (
 );
 CREATE TABLE IF NOT EXISTS fee_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   title TEXT NOT NULL,
   type TEXT NOT NULL DEFAULT '学费',
@@ -171,6 +188,7 @@ CREATE TABLE IF NOT EXISTS fee_records (
 );
 CREATE TABLE IF NOT EXISTS policy_notes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   title TEXT NOT NULL,
   issuer TEXT NOT NULL DEFAULT '',
   category TEXT NOT NULL DEFAULT '招生入学',
@@ -184,6 +202,7 @@ CREATE TABLE IF NOT EXISTS policy_notes (
 -- 学习园地
 CREATE TABLE IF NOT EXISTS garden_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   activity TEXT NOT NULL DEFAULT '',
   difficulty TEXT NOT NULL DEFAULT '简单',
@@ -195,6 +214,7 @@ CREATE TABLE IF NOT EXISTS garden_records (
 );
 CREATE TABLE IF NOT EXISTS garden_settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   activity TEXT NOT NULL,
   difficulty TEXT NOT NULL DEFAULT '简单',
@@ -203,6 +223,7 @@ CREATE TABLE IF NOT EXISTS garden_settings (
 );
 CREATE TABLE IF NOT EXISTS garden_mastery (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   activity TEXT NOT NULL,
   item_key TEXT NOT NULL,
@@ -214,6 +235,7 @@ CREATE TABLE IF NOT EXISTS garden_mastery (
 );
 CREATE TABLE IF NOT EXISTS garden_characters (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   char TEXT NOT NULL,
   pinyin TEXT NOT NULL DEFAULT '',
@@ -270,6 +292,36 @@ CREATE TABLE IF NOT EXISTS push_logs (
   created_at TEXT NOT NULL
 );
 
+-- 权限（RBAC）：业务表即策略源
+CREATE TABLE IF NOT EXISTS roles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  remark TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS menus (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  parent_id INTEGER,
+  type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  path TEXT NOT NULL DEFAULT '',
+  icon TEXT NOT NULL DEFAULT '',
+  perms TEXT NOT NULL DEFAULT '',
+  sort INTEGER NOT NULL DEFAULT 0,
+  visible INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS users_roles (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, role_id)
+);
+CREATE TABLE IF NOT EXISTS roles_menus (
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  menu_id INTEGER NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
+  PRIMARY KEY (role_id, menu_id)
+);
+
 -- 按 child_id 查询是所有业务路由的主路径，补索引避免大表全扫描
 CREATE INDEX IF NOT EXISTS idx_enrollments_child ON enrollments(child_id);
 CREATE INDEX IF NOT EXISTS idx_child_teachers_child ON child_teachers(child_id);
@@ -315,6 +367,29 @@ ensureColumn("timetable_slots", "semester_id", "INTEGER");
 ensureColumn("learning_records", "semester_id", "INTEGER");
 ensureColumn("fee_records", "semester_id", "INTEGER");
 ensureColumn("push_logs", "content", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("users", "status", "INTEGER NOT NULL DEFAULT 1");
+
+// 业务表按用户归属（存量数据默认归首个账号 admin）
+ensureColumn("children", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("schools", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("enrollments", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("teachers", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("child_teachers", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("learning_records", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("growth_records", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("health_records", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("activities", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("moments", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("timetable_slots", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("timetable_period_order", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("semesters", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("fee_records", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("policy_notes", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("garden_records", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("garden_settings", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("garden_mastery", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("garden_characters", "user_id", "INTEGER NOT NULL DEFAULT 1");
 
 // ===== 提醒中心多用户迁移：旧库（无 user_id 概念）补齐并按首个账号回填 =====
 // 首个账号（种子 admin）之外的旧数据均归属该账号
@@ -353,6 +428,27 @@ sqlite.exec(`
 CREATE INDEX IF NOT EXISTS idx_reminders_user ON reminders(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_push_logs_user ON push_logs(user_id, created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_push_channels_user_type ON push_channels(user_id, type);
+
+-- 业务表按用户隔离的主查询路径：有 child_id 的用 (user_id, child_id) 复合索引
+CREATE INDEX IF NOT EXISTS idx_enrollments_user_child ON enrollments(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_child_teachers_user_child ON child_teachers(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_learning_records_user_child ON learning_records(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_growth_records_user_child ON growth_records(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_health_records_user_child ON health_records(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_activities_user_child ON activities(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_moments_user_child ON moments(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_timetable_slots_user_child ON timetable_slots(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_timetable_period_order_user_child ON timetable_period_order(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_semesters_user_child ON semesters(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_fee_records_user_child ON fee_records(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_garden_records_user_child ON garden_records(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_garden_settings_user_child ON garden_settings(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_garden_mastery_user_child ON garden_mastery(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_garden_characters_user_child ON garden_characters(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_children_user ON children(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_schools_user ON schools(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_teachers_user ON teachers(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_policy_notes_user ON policy_notes(user_id, id);
 `);
 
 // 旧学期文本迁移（幂等）：term 列还在时，把遗留学期文本按孩子补建入学学期并回填 semester_id，然后删除 term 列
@@ -385,9 +481,11 @@ if (userCount === 0) {
   const hash = bcrypt.hashSync("admin123", 10);
   sqlite
     .prepare(
-      "INSERT OR IGNORE INTO users (username, password_hash, display_name, created_at) VALUES (?, ?, ?, ?)"
+      "INSERT OR IGNORE INTO users (username, password_hash, display_name, is_admin, status, created_at) VALUES (?, ?, ?, 1, 1, ?)"
     )
     .run("admin", hash, "管理员", new Date().toISOString());
 }
 
+// 权限种子：admin 超管升级 + 菜单树 + 示例角色（幂等）
 export const db = drizzle(sqlite, { schema });
+ensurePermissionSeeds(db);

@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { pushLogs, reminders } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 
 /** 站内通知轮询：本人未读 + 近 7 天已读的最近记录（铃铛下拉用） */
 export async function GET(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:reminders:notifications-get");
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Number(searchParams.get("limit") ?? 10) || 10, 50);
 

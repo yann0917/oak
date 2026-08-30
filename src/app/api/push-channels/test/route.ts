@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 import { sendChannel } from "@/lib/reminders/channels";
 import { CHANNEL_TYPES } from "@/lib/reminders/meta";
 
@@ -7,7 +7,9 @@ import { CHANNEL_TYPES } from "@/lib/reminders/meta";
 export async function POST(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:push-channels:test-post");
+  if (denied) return denied;
   const { type } = await req.json();
   if (!CHANNEL_TYPES.includes(type)) return NextResponse.json({ error: "未知渠道" }, { status: 400 });
   const res = await sendChannel(

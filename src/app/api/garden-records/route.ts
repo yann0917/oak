@@ -2,20 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { gardenRecords, gardenMastery } from "@/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { ACTIVITY_KEYS, GAME_KEYS, type ActivityKey, type GameKey } from "@/lib/garden/types";
 
 // GET 练习记录列表：?childId= 必填，?activity= 可选
 export async function GET(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("garden-records", "list", req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const childId = Number(searchParams.get("childId"));
   if (!childId) {
     return NextResponse.json({ error: "缺少 childId 参数" }, { status: 400 });
   }
   const activity = searchParams.get("activity");
-  const conditions = [eq(gardenRecords.childId, childId)];
+  const conditions = [eq(gardenRecords.childId, childId), eq(gardenRecords.userId, user!.id)];
   if (activity) conditions.push(eq(gardenRecords.activity, activity));
   const rows = db
     .select()
@@ -35,8 +35,8 @@ interface ResultItem {
 
 // POST 提交一轮成绩：插入会话记录 + 按知识点更新掌握度（事务）
 export async function POST(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("garden-records", "create", req);
+  if (denied) return denied;
   const body = await req.json();
   const childId = Number(body.childId);
   const activity = String(body.activity || "");
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
     const inserted = tx
       .insert(gardenRecords)
       .values({
+        userId: user!.id,
         childId,
         activity,
         difficulty,
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
       } else {
         tx.insert(gardenMastery)
           .values({
+            userId: user!.id,
             childId,
             activity,
             itemKey: r.itemKey,

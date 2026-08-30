@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, desc, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { children, reminderRules, reminders } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 import { computeNextRunAt, DEFAULT_TZ, type Reminder } from "@/lib/reminders/engine";
 
 const SCHEDULE_TYPES = ["once", "daily", "weekly", "monthly", "cron"];
@@ -70,7 +70,9 @@ function buildRule(body: ReminderBody): Record<string, any> {
 export async function GET(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:reminders:list");
+  if (denied) return denied;
 
   const rows = db
     .select({
@@ -132,7 +134,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:reminders:create");
+  if (denied) return denied;
   const body = (await req.json()) as ReminderBody;
 
   const built = buildReminder(body);

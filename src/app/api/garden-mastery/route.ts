@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { gardenMastery } from "@/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 
 // GET 知识点掌握度：?childId=&activity= 必填，出题加权用
 export async function GET(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("garden-mastery", "list", req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const childId = Number(searchParams.get("childId"));
   const activity = searchParams.get("activity");
@@ -17,7 +17,13 @@ export async function GET(req: NextRequest) {
   const rows = db
     .select()
     .from(gardenMastery)
-    .where(and(eq(gardenMastery.childId, childId), eq(gardenMastery.activity, activity)))
+    .where(
+      and(
+        eq(gardenMastery.childId, childId),
+        eq(gardenMastery.activity, activity),
+        eq(gardenMastery.userId, user!.id)
+      )
+    )
     .orderBy(desc(gardenMastery.updatedAt))
     .all();
   return NextResponse.json(rows);

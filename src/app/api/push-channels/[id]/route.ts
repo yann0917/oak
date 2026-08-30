@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pushChannels } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:push-channels:update");
+  if (denied) return denied;
   const { id } = await ctx.params;
   const body = await req.json();
   const values: Record<string, any> = {};
@@ -28,7 +30,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:push-channels:delete");
+  if (denied) return denied;
   const { id } = await ctx.params;
   const row = db
     .delete(pushChannels)

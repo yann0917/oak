@@ -6,50 +6,99 @@ import { useEffect, useState } from "react";
 import { Button, Cursor, Footer, Icon, Select, Title } from "animal-island-ui";
 import type { IconName } from "animal-island-ui";
 import { useChildren } from "@/lib/childContext";
+import { useProfile, type ProfileMenu } from "@/lib/profileContext";
 import { api, calcAge } from "@/lib/api";
 import { WeatherBadge } from "./WeatherBadge";
 import { NotificationBell } from "./NotificationBell";
-
-const NAV: { href: string; label: string; icon: IconName }[] = [
-  { href: "/", label: "概览", icon: "icon-map" },
-  { href: "/education", label: "教育经历", icon: "icon-critterpedia" },
-  { href: "/timetable", label: "课程表", icon: "icon-design" },
-  { href: "/learning", label: "学习情况", icon: "icon-diy" },
-  { href: "/garden", label: "学习园地", icon: "icon-miles" },
-  { href: "/growth", label: "成长记录", icon: "icon-miles" },
-  { href: "/health", label: "健康档案", icon: "icon-variant" },
-  { href: "/moments", label: "时光相册", icon: "icon-camera" },
-  { href: "/fees", label: "学费记录", icon: "icon-shopping" },
-  { href: "/reminders", label: "提醒中心", icon: "icon-miles" },
-  { href: "/policies", label: "政策动态", icon: "icon-chat" },
-  { href: "/children", label: "子女管理", icon: "icon-miles" },
-  { href: "/settings", label: "设置", icon: "icon-helicopter" },
-];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { children: kids, currentChild, setCurrentChildId, loading } = useChildren();
+  const { menus } = useProfile();
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    api("/api/auth/me").catch(() => {});
-  }, []);
+    api("/api/auth/me").catch(() => {
+      router.push("/login");
+    });
+  }, [router]);
 
   const logout = async () => {
     await api("/api/auth/logout", { method: "POST" });
     router.push("/login");
   };
 
-  const navLinks = (onNavigate?: () => void) =>
-    NAV.map((item) => {
-      const active = pathname === item.href;
-      return (
+  const renderNav = (nodes: ProfileMenu[], onNavigate?: () => void, depth = 0) => {
+    if (!nodes.length) return null;
+    return (
+      <div className={`${depth === 0 ? "space-y-1.5" : "space-y-1.5 mt-1.5"}`}>
+        {nodes.map((item) => {
+          if (item.type === "dir") {
+            // 目录：仅含按钮（权限点）时跳过，避免出现空分组标题
+            if (!(item.children ?? []).some((c) => c.type !== "button")) return null;
+            return (
+              <div key={item.id} className={depth === 0 ? "pt-3" : ""}>
+                <div
+                  className="px-3 text-xs font-bold"
+                  style={{ color: "var(--animal-text-color-secondary)" }}
+                >
+                  {item.name}
+                </div>
+                {renderNav(item.children ?? [], onNavigate, depth + 1)}
+              </div>
+            );
+          }
+          const active =
+            pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path + "/"));
+          return (
+            <Link
+              key={item.id}
+              href={item.path}
+              onClick={onNavigate}
+              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm font-semibold transition-all ${
+                depth > 0 ? "ml-2" : ""
+              }`}
+              style={
+                active
+                  ? {
+                      background: "var(--animal-primary-color-bg)",
+                      color: "var(--animal-primary-color)",
+                    }
+                  : { color: "var(--animal-text-color-secondary)" }
+              }
+            >
+              <Icon name={(item.icon || "icon-miles") as IconName} size={20} />
+              {item.name}
+            </Link>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderMobileGrid = (nodes: ProfileMenu[], depth = 0): React.ReactNode[] =>
+    nodes.flatMap((item) => {
+      if (item.type === "dir") {
+        return [
+          <div
+            key={`dir-${item.id}`}
+            className="col-span-3 text-xs font-bold px-1 pt-2 first:pt-0"
+            style={{ color: "var(--animal-text-color-secondary)" }}
+          >
+            {item.name}
+          </div>,
+          ...renderMobileGrid(item.children ?? [], depth + 1),
+        ];
+      }
+      const active =
+        pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path + "/"));
+      return [
         <Link
-          key={item.href}
-          href={item.href}
-          onClick={onNavigate}
-          className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+          key={item.id}
+          href={item.path}
+          onClick={() => setMenuOpen(false)}
+          className="flex flex-col items-center gap-1 py-2.5 rounded-2xl text-xs font-semibold"
           style={
             active
               ? {
@@ -59,10 +108,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               : { color: "var(--animal-text-color-secondary)" }
           }
         >
-          <Icon name={item.icon} size={20} />
-          {item.label}
-        </Link>
-      );
+          <Icon name={(item.icon || "icon-miles") as IconName} size={22} />
+          {item.name}
+        </Link>,
+      ];
     });
 
   return (
@@ -81,7 +130,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Oak
             </Title>
           </div>
-          <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">{navLinks()}</nav>
+          <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">{renderNav(menus)}</nav>
           <div className="px-3 pb-4 flex justify-end">
             <Button size="small" type="text" onClick={logout}>
               退出
@@ -119,7 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       className="text-sm hidden sm:inline"
                       style={{ color: "var(--animal-text-color-secondary)" }}
                     >
-                      当前孩子
+                      当前子女
                     </span>
                     <div className="w-56">
                       <Select
@@ -148,28 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   background: "var(--animal-bg-color)",
                 }}
               >
-                {NAV.map((item) => {
-                  const active = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMenuOpen(false)}
-                      className="flex flex-col items-center gap-1 py-2.5 rounded-2xl text-xs font-semibold"
-                      style={
-                        active
-                          ? {
-                              background: "var(--animal-primary-color-bg)",
-                              color: "var(--animal-primary-color)",
-                            }
-                          : { color: "var(--animal-text-color-secondary)" }
-                      }
-                    >
-                      <Icon name={item.icon} size={22} />
-                      {item.label}
-                    </Link>
-                  );
-                })}
+                {renderMobileGrid(menus)}
               </nav>
             )}
           </header>

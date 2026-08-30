@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { pushChannels } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { authorize, requireUser } from "@/lib/auth";
 import { CHANNEL_TYPES, type ChannelType } from "@/lib/reminders/meta";
 
 export async function GET(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:push-channels:list");
+  if (denied) return denied;
   const rows = db
     .select()
     .from(pushChannels)
@@ -22,7 +24,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
-  const uid = auth.user.uid;
+  const uid = auth.user.id;
+  const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:push-channels:create");
+  if (denied) return denied;
   const body = await req.json();
   const type = body.type as ChannelType;
   if (!CHANNEL_TYPES.includes(type)) return NextResponse.json({ error: "未知渠道" }, { status: 400 });

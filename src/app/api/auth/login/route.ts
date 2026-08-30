@@ -14,7 +14,15 @@ export async function POST(req: NextRequest) {
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
     return NextResponse.json({ error: "用户名或密码错误" }, { status: 401 });
   }
+  if (!user.status) {
+    return NextResponse.json({ error: "账号已停用，请联系管理员" }, { status: 403 });
+  }
   const token = signToken({ uid: user.id, username: user.username });
   await setAuthCookie(token);
-  return NextResponse.json({ id: user.id, username: user.username, displayName: user.displayName });
+  return NextResponse.json({
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    isAdmin: !!user.isAdmin,
+  });
 }

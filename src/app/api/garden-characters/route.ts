@@ -3,18 +3,18 @@ import { eq, and } from "drizzle-orm";
 import { pinyin } from "pinyin-pro";
 import { db } from "@/db";
 import { gardenCharacters } from "@/db/schema";
-import { requireAuth } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 
 // GET 自定义字库：?childId= 必填，?tier= 可选
 export async function GET(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("garden-characters", "list", req);
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const childId = Number(searchParams.get("childId"));
   if (!childId) {
     return NextResponse.json({ error: "缺少 childId 参数" }, { status: 400 });
   }
-  const conditions = [eq(gardenCharacters.childId, childId)];
+  const conditions = [eq(gardenCharacters.childId, childId), eq(gardenCharacters.userId, user!.id)];
   const tier = Number(searchParams.get("tier"));
   if (tier === 1 || tier === 2 || tier === 3) {
     conditions.push(eq(gardenCharacters.tier, tier));
@@ -29,8 +29,8 @@ export async function GET(req: NextRequest) {
 
 // POST 批量加字：服务端 pinyin-pro 自动注音；重复字跳过并返回 skipped
 export async function POST(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { user, denied } = await requirePerm("garden-characters", "create", req);
+  if (denied) return denied;
   const body = await req.json();
   const childId = Number(body.childId);
   const tier = Number(body.tier);
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const existingRows = db
     .select()
     .from(gardenCharacters)
-    .where(eq(gardenCharacters.childId, childId))
+    .where(and(eq(gardenCharacters.childId, childId), eq(gardenCharacters.userId, user!.id)))
     .all();
   const existingChars = new Set(existingRows.map((r) => r.char));
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const py = chars.length === 1 && manualPinyin ? manualPinyin : pinyin(char, { toneType: "symbol" });
     const row = db
       .insert(gardenCharacters)
-      .values({ childId, char, pinyin: py, word, tier, createdAt: now })
+      .values({ userId: user!.id, childId, char, pinyin: py, word, tier, createdAt: now })
       .returning()
       .get();
     added.push(row);

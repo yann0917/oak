@@ -1,4 +1,4 @@
 import { children } from "@/db/schema";
 import { makeCollectionHandlers } from "@/lib/crud";
 
-export const { GET, POST } = makeCollectionHandlers(children);
+export const { GET, POST } = makeCollectionHandlers(children, { api: "children" });

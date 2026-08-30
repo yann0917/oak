@@ -1,4 +1,4 @@
 import { policyNotes } from "@/db/schema";
 import { makeCollectionHandlers } from "@/lib/crud";
 
-export const { GET, POST } = makeCollectionHandlers(policyNotes);
+export const { GET, POST } = makeCollectionHandlers(policyNotes, { api: "policy-notes" });

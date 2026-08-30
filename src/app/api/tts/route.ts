@@ -5,7 +5,7 @@
 // 生成并落盘缓存（data/tts/），之后命中缓存直接回文件；同时带一年的浏览器缓存头，
 // 前端 Audio 元素第二次起也不再发请求。
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { edgeTtsSynthesize } from "@/lib/tts/edgeTts";
 import { TTS_VOICES, type TtsVoice } from "@/lib/tts/voices";
 import {
@@ -21,8 +21,8 @@ const PITCH_RE = /^[+-]\d{1,3}Hz$/;
 const VOLUME_RE = /^[+-]\d{1,3}%$/;
 
 export async function GET(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { denied: denied } = await requirePerm("tts", "synthesize", req);
+  if (denied) return denied;
 
   const { searchParams } = new URL(req.url);
   const text = (searchParams.get("text") || "").trim();

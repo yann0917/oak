@@ -51,7 +51,7 @@ export default function GrowthAssessmentPage() {
   const [hc, setHc] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // 进入页面时用当前孩子档案 + 最近一条身高体重记录预填
+  // 进入页面时用当前子女档案 + 最近一条身高体重记录预填
   useEffect(() => {
     if (!currentChild) return;
     if (currentChild.birthday) setBirth(currentChild.birthday);

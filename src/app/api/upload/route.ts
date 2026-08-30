@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { requireAuth } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -16,8 +16,8 @@ const EXT_MAP: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  const unauthorized = await requireAuth(req);
-  if (unauthorized) return unauthorized;
+  const { denied } = await requirePerm("upload", "upload", req);
+  if (denied) return denied;
 
   const formData = await req.formData();
   const files = formData.getAll("files").filter((f): f is File => f instanceof File);

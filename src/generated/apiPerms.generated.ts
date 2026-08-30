@@ -1,0 +1,486 @@
+// 由 scripts/gen-api-perms.mjs 自动生成（npm run build 前执行），请勿手改。
+// 接口权限点清单：角色分配权限时按「接口权限」目录勾选生效。
+
+export interface ApiPermDef {
+  resource: string;
+  perms: string;
+  label: string;
+}
+
+export const API_PERMS: ApiPermDef[] = [
+  {
+    "resource": "activities",
+    "perms": "api:activities:create",
+    "label": "兴趣班·新增"
+  },
+  {
+    "resource": "activities",
+    "perms": "api:activities:delete",
+    "label": "兴趣班·删除"
+  },
+  {
+    "resource": "activities",
+    "perms": "api:activities:detail",
+    "label": "兴趣班·查看详情"
+  },
+  {
+    "resource": "activities",
+    "perms": "api:activities:list",
+    "label": "兴趣班·查看列表"
+  },
+  {
+    "resource": "activities",
+    "perms": "api:activities:update",
+    "label": "兴趣班·修改"
+  },
+  {
+    "resource": "child-teachers",
+    "perms": "api:child-teachers:create",
+    "label": "师生关联·新增"
+  },
+  {
+    "resource": "child-teachers",
+    "perms": "api:child-teachers:delete",
+    "label": "师生关联·删除"
+  },
+  {
+    "resource": "child-teachers",
+    "perms": "api:child-teachers:detail",
+    "label": "师生关联·查看详情"
+  },
+  {
+    "resource": "child-teachers",
+    "perms": "api:child-teachers:list",
+    "label": "师生关联·查看列表"
+  },
+  {
+    "resource": "child-teachers",
+    "perms": "api:child-teachers:update",
+    "label": "师生关联·修改"
+  },
+  {
+    "resource": "children",
+    "perms": "api:children:create",
+    "label": "子女·新增"
+  },
+  {
+    "resource": "children",
+    "perms": "api:children:delete",
+    "label": "子女·删除"
+  },
+  {
+    "resource": "children",
+    "perms": "api:children:detail",
+    "label": "子女·查看详情"
+  },
+  {
+    "resource": "children",
+    "perms": "api:children:list",
+    "label": "子女·查看列表"
+  },
+  {
+    "resource": "children",
+    "perms": "api:children:update",
+    "label": "子女·修改"
+  },
+  {
+    "resource": "enrollments",
+    "perms": "api:enrollments:create",
+    "label": "就读阶段·新增"
+  },
+  {
+    "resource": "enrollments",
+    "perms": "api:enrollments:delete",
+    "label": "就读阶段·删除"
+  },
+  {
+    "resource": "enrollments",
+    "perms": "api:enrollments:detail",
+    "label": "就读阶段·查看详情"
+  },
+  {
+    "resource": "enrollments",
+    "perms": "api:enrollments:list",
+    "label": "就读阶段·查看列表"
+  },
+  {
+    "resource": "enrollments",
+    "perms": "api:enrollments:update",
+    "label": "就读阶段·修改"
+  },
+  {
+    "resource": "fee-records",
+    "perms": "api:fee-records:create",
+    "label": "学费·新增"
+  },
+  {
+    "resource": "fee-records",
+    "perms": "api:fee-records:delete",
+    "label": "学费·删除"
+  },
+  {
+    "resource": "fee-records",
+    "perms": "api:fee-records:detail",
+    "label": "学费·查看详情"
+  },
+  {
+    "resource": "fee-records",
+    "perms": "api:fee-records:list",
+    "label": "学费·查看列表"
+  },
+  {
+    "resource": "fee-records",
+    "perms": "api:fee-records:update",
+    "label": "学费·修改"
+  },
+  {
+    "resource": "garden-characters",
+    "perms": "api:garden-characters:create",
+    "label": "识字字库·新增"
+  },
+  {
+    "resource": "garden-characters",
+    "perms": "api:garden-characters:delete",
+    "label": "识字字库·删除"
+  },
+  {
+    "resource": "garden-characters",
+    "perms": "api:garden-characters:detail",
+    "label": "识字字库·查看详情"
+  },
+  {
+    "resource": "garden-characters",
+    "perms": "api:garden-characters:list",
+    "label": "识字字库·查看列表"
+  },
+  {
+    "resource": "garden-characters",
+    "perms": "api:garden-characters:update",
+    "label": "识字字库·修改"
+  },
+  {
+    "resource": "garden-mastery",
+    "perms": "api:garden-mastery:list",
+    "label": "知识掌握度·查看列表"
+  },
+  {
+    "resource": "garden-records",
+    "perms": "api:garden-records:create",
+    "label": "练习记录·新增"
+  },
+  {
+    "resource": "garden-records",
+    "perms": "api:garden-records:list",
+    "label": "练习记录·查看列表"
+  },
+  {
+    "resource": "garden-settings",
+    "perms": "api:garden-settings:create",
+    "label": "练习配置·新增"
+  },
+  {
+    "resource": "garden-settings",
+    "perms": "api:garden-settings:list",
+    "label": "练习配置·查看列表"
+  },
+  {
+    "resource": "growth-records",
+    "perms": "api:growth-records:create",
+    "label": "成长记录·新增"
+  },
+  {
+    "resource": "growth-records",
+    "perms": "api:growth-records:delete",
+    "label": "成长记录·删除"
+  },
+  {
+    "resource": "growth-records",
+    "perms": "api:growth-records:detail",
+    "label": "成长记录·查看详情"
+  },
+  {
+    "resource": "growth-records",
+    "perms": "api:growth-records:list",
+    "label": "成长记录·查看列表"
+  },
+  {
+    "resource": "growth-records",
+    "perms": "api:growth-records:update",
+    "label": "成长记录·修改"
+  },
+  {
+    "resource": "health-records",
+    "perms": "api:health-records:create",
+    "label": "健康档案·新增"
+  },
+  {
+    "resource": "health-records",
+    "perms": "api:health-records:delete",
+    "label": "健康档案·删除"
+  },
+  {
+    "resource": "health-records",
+    "perms": "api:health-records:detail",
+    "label": "健康档案·查看详情"
+  },
+  {
+    "resource": "health-records",
+    "perms": "api:health-records:list",
+    "label": "健康档案·查看列表"
+  },
+  {
+    "resource": "health-records",
+    "perms": "api:health-records:update",
+    "label": "健康档案·修改"
+  },
+  {
+    "resource": "learning-records",
+    "perms": "api:learning-records:create",
+    "label": "学习记录·新增"
+  },
+  {
+    "resource": "learning-records",
+    "perms": "api:learning-records:delete",
+    "label": "学习记录·删除"
+  },
+  {
+    "resource": "learning-records",
+    "perms": "api:learning-records:detail",
+    "label": "学习记录·查看详情"
+  },
+  {
+    "resource": "learning-records",
+    "perms": "api:learning-records:list",
+    "label": "学习记录·查看列表"
+  },
+  {
+    "resource": "learning-records",
+    "perms": "api:learning-records:update",
+    "label": "学习记录·修改"
+  },
+  {
+    "resource": "moments",
+    "perms": "api:moments:create",
+    "label": "时光相册·新增"
+  },
+  {
+    "resource": "moments",
+    "perms": "api:moments:delete",
+    "label": "时光相册·删除"
+  },
+  {
+    "resource": "moments",
+    "perms": "api:moments:detail",
+    "label": "时光相册·查看详情"
+  },
+  {
+    "resource": "moments",
+    "perms": "api:moments:list",
+    "label": "时光相册·查看列表"
+  },
+  {
+    "resource": "moments",
+    "perms": "api:moments:update",
+    "label": "时光相册·修改"
+  },
+  {
+    "resource": "policy-notes",
+    "perms": "api:policy-notes:create",
+    "label": "政策动态·新增"
+  },
+  {
+    "resource": "policy-notes",
+    "perms": "api:policy-notes:delete",
+    "label": "政策动态·删除"
+  },
+  {
+    "resource": "policy-notes",
+    "perms": "api:policy-notes:detail",
+    "label": "政策动态·查看详情"
+  },
+  {
+    "resource": "policy-notes",
+    "perms": "api:policy-notes:list",
+    "label": "政策动态·查看列表"
+  },
+  {
+    "resource": "policy-notes",
+    "perms": "api:policy-notes:update",
+    "label": "政策动态·修改"
+  },
+  {
+    "resource": "push-channels",
+    "perms": "api:push-channels:create",
+    "label": "推送渠道·新增"
+  },
+  {
+    "resource": "push-channels",
+    "perms": "api:push-channels:delete",
+    "label": "推送渠道·删除"
+  },
+  {
+    "resource": "push-channels",
+    "perms": "api:push-channels:list",
+    "label": "推送渠道·查看列表"
+  },
+  {
+    "resource": "push-channels",
+    "perms": "api:push-channels:test-post",
+    "label": "推送渠道·测试推送"
+  },
+  {
+    "resource": "push-channels",
+    "perms": "api:push-channels:update",
+    "label": "推送渠道·修改"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:create",
+    "label": "提醒中心·新增"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:delete",
+    "label": "提醒中心·删除"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:list",
+    "label": "提醒中心·查看列表"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:logs-get",
+    "label": "提醒中心·发送日志"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:logs-read-post",
+    "label": "提醒中心·标记已读"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:notifications-get",
+    "label": "提醒中心·站内通知"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:test-post",
+    "label": "提醒中心·测试推送"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:toggle-post",
+    "label": "提醒中心·开关"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:update",
+    "label": "提醒中心·修改"
+  },
+  {
+    "resource": "schools",
+    "perms": "api:schools:create",
+    "label": "学校·新增"
+  },
+  {
+    "resource": "schools",
+    "perms": "api:schools:delete",
+    "label": "学校·删除"
+  },
+  {
+    "resource": "schools",
+    "perms": "api:schools:list",
+    "label": "学校·查看列表"
+  },
+  {
+    "resource": "semesters",
+    "perms": "api:semesters:create",
+    "label": "学期·新增"
+  },
+  {
+    "resource": "semesters",
+    "perms": "api:semesters:delete",
+    "label": "学期·删除"
+  },
+  {
+    "resource": "semesters",
+    "perms": "api:semesters:detail",
+    "label": "学期·查看详情"
+  },
+  {
+    "resource": "semesters",
+    "perms": "api:semesters:list",
+    "label": "学期·查看列表"
+  },
+  {
+    "resource": "semesters",
+    "perms": "api:semesters:update",
+    "label": "学期·修改"
+  },
+  {
+    "resource": "teachers",
+    "perms": "api:teachers:create",
+    "label": "教师·新增"
+  },
+  {
+    "resource": "teachers",
+    "perms": "api:teachers:delete",
+    "label": "教师·删除"
+  },
+  {
+    "resource": "teachers",
+    "perms": "api:teachers:detail",
+    "label": "教师·查看详情"
+  },
+  {
+    "resource": "teachers",
+    "perms": "api:teachers:list",
+    "label": "教师·查看列表"
+  },
+  {
+    "resource": "teachers",
+    "perms": "api:teachers:update",
+    "label": "教师·修改"
+  },
+  {
+    "resource": "timetable-period-order",
+    "perms": "api:timetable-period-order:list",
+    "label": "节次排序·查看列表"
+  },
+  {
+    "resource": "timetable-slots",
+    "perms": "api:timetable-slots:create",
+    "label": "课程表·新增"
+  },
+  {
+    "resource": "timetable-slots",
+    "perms": "api:timetable-slots:delete",
+    "label": "课程表·删除"
+  },
+  {
+    "resource": "timetable-slots",
+    "perms": "api:timetable-slots:detail",
+    "label": "课程表·查看详情"
+  },
+  {
+    "resource": "timetable-slots",
+    "perms": "api:timetable-slots:list",
+    "label": "课程表·查看列表"
+  },
+  {
+    "resource": "timetable-slots",
+    "perms": "api:timetable-slots:update",
+    "label": "课程表·修改"
+  },
+  {
+    "resource": "tts",
+    "perms": "api:tts:synthesize",
+    "label": "语音朗读·语音合成"
+  },
+  {
+    "resource": "upload",
+    "perms": "api:upload:upload",
+    "label": "文件上传·上传文件"
+  }
+];

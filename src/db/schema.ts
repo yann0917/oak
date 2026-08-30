@@ -4,18 +4,22 @@ import {
   integer,
   real,
   uniqueIndex,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  username: text("username").notNull().unique(),
+  username: text("username").notNull().unique(), // Casbin 的 sub
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull().default(""),
+  isAdmin: integer("is_admin").notNull().default(0), // 超管：菜单/权限短路放行
+  status: integer("status").notNull().default(1), // 1 启用 | 0 停用
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
 export const children = sqliteTable("children", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   name: text("name").notNull(),
   nickname: text("nickname").notNull().default(""),
   gender: text("gender").notNull().default("female"), // female | male
@@ -28,6 +32,7 @@ export const children = sqliteTable("children", {
 
 export const schools = sqliteTable("schools", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   name: text("name").notNull(),
   type: text("type").notNull().default("幼儿园"), // 幼儿园|小学|初中|高中|大学|培训机构
   address: text("address").notNull().default(""),
@@ -40,6 +45,7 @@ export const schools = sqliteTable("schools", {
 
 export const enrollments = sqliteTable("enrollments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   schoolId: integer("school_id").notNull(),
   stage: text("stage").notNull().default("幼儿园"), // 学习阶段
@@ -53,6 +59,7 @@ export const enrollments = sqliteTable("enrollments", {
 
 export const teachers = sqliteTable("teachers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   name: text("name").notNull(),
   subject: text("subject").notNull().default(""),
   schoolId: integer("school_id"),
@@ -63,6 +70,7 @@ export const teachers = sqliteTable("teachers", {
 
 export const childTeachers = sqliteTable("child_teachers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   teacherId: integer("teacher_id").notNull(),
   stage: text("stage").notNull().default(""),
@@ -73,6 +81,7 @@ export const childTeachers = sqliteTable("child_teachers", {
 
 export const learningRecords = sqliteTable("learning_records", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   date: text("date").notNull().default(""),
   semesterId: integer("semester_id"), // 学期 ID，关联 semesters，可空
@@ -85,6 +94,7 @@ export const learningRecords = sqliteTable("learning_records", {
 
 export const growthRecords = sqliteTable("growth_records", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   date: text("date").notNull(),
   height: real("height"), // cm
@@ -95,6 +105,7 @@ export const growthRecords = sqliteTable("growth_records", {
 
 export const healthRecords = sqliteTable("health_records", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   type: text("type").notNull().default("体检"), // 体检|疫苗|用药|病历
   date: text("date").notNull().default(""),
@@ -106,6 +117,7 @@ export const healthRecords = sqliteTable("health_records", {
 
 export const activities = sqliteTable("activities", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   name: text("name").notNull(),
   category: text("category").notNull().default(""), // 类别：美术/音乐/体育等
@@ -120,6 +132,7 @@ export const activities = sqliteTable("activities", {
 
 export const moments = sqliteTable("moments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   date: text("date").notNull().default(""),
   title: text("title").notNull(),
@@ -131,6 +144,7 @@ export const moments = sqliteTable("moments", {
 
 export const timetableSlots = sqliteTable("timetable_slots", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   semesterId: integer("semester_id"), // 学期 ID，关联 semesters，可空
   day: text("day").notNull().default("周一"), // 周一~周日
@@ -145,6 +159,7 @@ export const timetableSlots = sqliteTable("timetable_slots", {
 // 节次的手动排序（每个孩子每个学期一套行顺序）
 export const timetablePeriodOrder = sqliteTable("timetable_period_order", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   term: text("term").notNull(),
   period: text("period").notNull(),
@@ -154,6 +169,7 @@ export const timetablePeriodOrder = sqliteTable("timetable_period_order", {
 // 学期（每个孩子独立一套），课程表/学习情况/学费记录按 semester_id 关联
 export const semesters = sqliteTable("semesters", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   name: text("name").notNull(),
   year: text("year").notNull().default(""), // 年份，如 2026
@@ -166,6 +182,7 @@ export const semesters = sqliteTable("semesters", {
 
 export const feeRecords = sqliteTable("fee_records", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   title: text("title").notNull(),
   type: text("type").notNull().default("学费"), // 学费|餐费|校车费|兴趣班|杂费|其他
@@ -181,6 +198,7 @@ export const feeRecords = sqliteTable("fee_records", {
 
 export const policyNotes = sqliteTable("policy_notes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   title: text("title").notNull(),
   issuer: text("issuer").notNull().default(""), // 发布单位，如 XX市教育局
   category: text("category").notNull().default("招生入学"), // 招生入学|升学政策|健康疫苗|减负规定|其他
@@ -196,6 +214,7 @@ export const policyNotes = sqliteTable("policy_notes", {
 // 练习会话记录：每完成一轮练习写入一条
 export const gardenRecords = sqliteTable("garden_records", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   activity: text("activity").notNull().default(""), // 活动 key，同 GARDEN_ACTIVITIES
   difficulty: text("difficulty").notNull().default("简单"), // 简单|中等|困难
@@ -209,6 +228,7 @@ export const gardenRecords = sqliteTable("garden_records", {
 // 难度与个性化配置（每孩子每活动一条）：difficulty + config JSON（roundSize、数学参数、字库开关等）
 export const gardenSettings = sqliteTable("garden_settings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   activity: text("activity").notNull(),
   difficulty: text("difficulty").notNull().default("简单"),
@@ -219,6 +239,7 @@ export const gardenSettings = sqliteTable("garden_settings", {
 // 知识点掌握度（每孩子每活动每知识点一条）：选题时薄弱项加权
 export const gardenMastery = sqliteTable("garden_mastery", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   activity: text("activity").notNull(),
   itemKey: text("item_key").notNull(), // 知识点唯一键
@@ -232,6 +253,7 @@ export const gardenMastery = sqliteTable("garden_mastery", {
 // 识字卡自定义字库（每孩子独立，内置字库之外的补充）
 export const gardenCharacters = sqliteTable("garden_characters", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   char: text("char").notNull(), // 单个汉字
   pinyin: text("pinyin").notNull().default(""), // 带声调，服务端 pinyin-pro 自动注音
@@ -247,8 +269,7 @@ export const reminders = sqliteTable("reminders", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull().default(1), // 归属用户（为多账号预留）
   childId: integer("child_id"), // 关联孩子（可空，模板渲染 {{child}} 用）
-  title: text("title").notNull(),
-  content: text("content").notNull().default(""), // 支持 {{child}} {{days_left}} {{target_date}}
+  title: text("title").notNull(),  content: text("content").notNull().default(""), // 支持 {{child}} {{days_left}} {{target_date}}
   scheduleType: text("schedule_type").notNull().default("once"), // once|daily|weekly|monthly|cron
   cronExpr: text("cron_expr").notNull().default(""),
   timeOfDay: text("time_of_day").notNull().default("09:00"), // daily/weekly/monthly 的触发时刻 HH:mm
@@ -299,3 +320,44 @@ export const pushLogs = sqliteTable("push_logs", {
   read: integer("read").notNull().default(0), // 站内通知已读标记
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
+
+// ===== 权限（RBAC）：业务表即策略源，Casbin 不建自己的表 =====
+
+export const roles = sqliteTable("roles", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  code: text("code").notNull().unique(), // 如 "editor"，即 Casbin 的角色名
+  name: text("name").notNull(),
+  remark: text("remark").notNull().default(""),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 菜单树：dir 目录 | menu 菜单 | button 按钮（button 不进侧边栏，只作为 perms 权限点）
+export const menus = sqliteTable("menus", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  parentId: integer("parent_id"), // 树形，null = 顶级
+  type: text("type").notNull(), // dir | menu | button
+  name: text("name").notNull(),
+  path: text("path").notNull().default(""), // 路由，button 为空
+  icon: text("icon").notNull().default(""),
+  perms: text("perms").notNull().default(""), // 权限标识，如 system:user:list，dir/menu 可为空
+  sort: integer("sort").notNull().default(0),
+  visible: integer("visible").notNull().default(1),
+});
+
+export const usersRoles = sqliteTable(
+  "users_roles",
+  {
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    roleId: integer("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.roleId] })]
+);
+
+export const rolesMenus = sqliteTable(
+  "roles_menus",
+  {
+    roleId: integer("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+    menuId: integer("menu_id").notNull().references(() => menus.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.roleId, t.menuId] })]
+);
