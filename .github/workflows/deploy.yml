@@ -85,8 +85,9 @@ jobs:
             ssh-add ~/.ssh/id_ed25519
           fi
 
-          SSH_OPTS=(-i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "${SSH_PORT}")
+          # 注意：ssh 的端口参数是小写 -p，scp 的是大写 -P，不能共用同一组参数
+          SSH_OPTS=(-i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
 
-          ssh "${SSH_OPTS[@]}" "${OAK_USER}@${OAK_HOST}" 'mkdir -p /opt/oak'
-          scp "${SSH_OPTS[@]}" oak-dist.tar.gz "${OAK_USER}@${OAK_HOST}:/opt/oak/oak-dist.tar.gz"
-          ssh "${SSH_OPTS[@]}" "${OAK_USER}@${OAK_HOST}" 'set -e; cd /opt/oak && rm -rf .next node_modules server.js public && tar -xzf oak-dist.tar.gz && test -f server.js && test -d .next/static && echo "部署完成，/opt/oak 当前内容：" && ls -la'
+          ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" 'mkdir -p /opt/oak'
+          scp "${SSH_OPTS[@]}" -P "${SSH_PORT}" oak-dist.tar.gz "${OAK_USER}@${OAK_HOST}:/opt/oak/oak-dist.tar.gz"
+          ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" 'set -e; cd /opt/oak && rm -rf .next node_modules server.js public && tar -xzf oak-dist.tar.gz && test -f server.js && test -d .next/static && echo "部署完成，/opt/oak 当前内容：" && ls -la'
