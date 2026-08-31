@@ -25,6 +25,7 @@ export default function PoliciesPage() {
       <CrudSection
         title="政策记录"
         endpoint="/api/policy-notes"
+        pageSize={10}
         fields={[
           { name: "title", label: "标题", required: true, placeholder: "如：2026年幼儿园招生工作通知" },
           { name: "issuer", label: "发布单位", placeholder: "如：XX市教育局" },

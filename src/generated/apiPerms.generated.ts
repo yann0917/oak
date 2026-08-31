@@ -61,27 +61,27 @@ export const API_PERMS: ApiPermDef[] = [
   {
     "resource": "children",
     "perms": "api:children:create",
-    "label": "子女·新增"
+    "label": "成员·新增"
   },
   {
     "resource": "children",
     "perms": "api:children:delete",
-    "label": "子女·删除"
+    "label": "成员·删除"
   },
   {
     "resource": "children",
     "perms": "api:children:detail",
-    "label": "子女·查看详情"
+    "label": "成员·查看详情"
   },
   {
     "resource": "children",
     "perms": "api:children:list",
-    "label": "子女·查看列表"
+    "label": "成员·查看列表"
   },
   {
     "resource": "children",
     "perms": "api:children:update",
-    "label": "子女·修改"
+    "label": "成员·修改"
   },
   {
     "resource": "enrollments",
@@ -392,6 +392,11 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "reminders",
     "perms": "api:reminders:list",
     "label": "提醒中心·查看列表"
+  },
+  {
+    "resource": "reminders",
+    "perms": "api:reminders:logs-delete",
+    "label": "提醒中心·logs-delete"
   },
   {
     "resource": "reminders",

@@ -60,7 +60,7 @@ export function ensurePermissionSeeds(db: Db) {
   }
 
   // 示例角色 editor（幂等）：
-  // 勾选 概览 + 子女管理 + 提醒中心 + 接口权限目录（勾了全部接口，便于演示数据隔离而非权限限制）
+  // 勾选 概览 + 成员管理 + 提醒中心 + 接口权限目录（勾了全部接口，便于演示数据隔离而非权限限制）
   const editor = db.all(sql`SELECT id FROM roles WHERE code = 'editor'`) as any[];
   let editorId = editor.length ? (editor[0].id as number) : 0;
   if (!editorId) {
@@ -69,7 +69,7 @@ export function ensurePermissionSeeds(db: Db) {
         .lastInsertRowid
     );
     const pickMenus = db.all(
-      sql`SELECT id FROM menus WHERE (name IN ('概览', '子女管理', '提醒中心')) OR (parent_id IN (SELECT id FROM menus WHERE name IN ('子女管理', '提醒中心')))`
+      sql`SELECT id FROM menus WHERE (name IN ('概览', '成员管理', '提醒中心')) OR (parent_id IN (SELECT id FROM menus WHERE name IN ('成员管理', '提醒中心')))`
     ) as any[];
     for (const m of pickMenus) {
       db.run(sql`INSERT OR IGNORE INTO roles_menus (role_id, menu_id) VALUES (${editorId}, ${m.id})`);

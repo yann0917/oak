@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
-    "animal-island-ui": "^1.7.0",
+    "animal-island-ui": "^1.8.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
     "casbin": "^5.51.1",
@@ -22,6 +22,7 @@
     "jose": "^6.2.10",
     "jsonwebtoken": "^9.0.3",
     "katex": "^0.16.47",
+    "lucide-react": "^1.37.0",
     "next": "^16.3.3",
     "novel": "^1.0.2",
     "pinyin-pro": "^3.29.3",

@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       className="text-sm hidden sm:inline"
                       style={{ color: "var(--animal-text-color-secondary)" }}
                     >
-                      当前子女
+                      当前成员
                     </span>
                     <div className="w-56">
                       <Select
@@ -176,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           key: String(c.id),
                           label: c.birthday ? `${c.name}（${calcAge(c.birthday)}）` : c.name,
                         }))}
-                        aria-label="切换孩子"
+                        aria-label="切换成员"
                       />
                     </div>
                     <Button size="small" type="text" onClick={logout} className="md:hidden">

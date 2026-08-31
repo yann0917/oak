@@ -10,7 +10,7 @@ export default function SemestersSection() {
   if (!currentChild) {
     return (
       <p className="text-center py-10 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
-        请先在「子女管理」中添加孩子
+        请先在「成员管理」中添加成员
       </p>
     );
   }

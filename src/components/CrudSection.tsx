@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { Button, Card, DatePicker, Image, Input, Modal, Select, Tag } from "animal-island-ui";
+import { Button, Card, DatePicker, Image, Input, Modal, Pagination, Select, Tag } from "animal-island-ui";
 import { Notification } from "@/lib/toast";
 import { api, OptionItem } from "@/lib/api";
 import { PhotoUploader } from "./PhotoUploader";
@@ -32,6 +32,7 @@ export function CrudSection({
   renderItem,
   onDataChange,
   childId,
+  pageSize,
 }: {
   title: string;
   endpoint: string;
@@ -41,6 +42,8 @@ export function CrudSection({
   onDataChange?: () => void;
   /** 孩子维度的表：新建时自动附带 childId */
   childId?: number;
+  /** 传入即开启分页，每次只加载一页数据 */
+  pageSize?: number;
 }) {
   const [items, setItems] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
@@ -51,11 +54,26 @@ export function CrudSection({
   const [refLists, setRefLists] = useState<Record<string, OptionItem[]>>({});
   const [deleting, setDeleting] = useState<any | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  // 分页状态（pageSize 未传时固定为 1，一次加载全部）
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const load = async () => setItems(await api<any[]>(endpoint));
+  const load = async (targetPage = page) => {
+    if (pageSize) {
+      // endpoint 可能已带查询串（如 ?childId=1），分页参数用 & 拼接
+      const sep = endpoint.includes("?") ? "&" : "?";
+      const res = await api<{ total: number; list: any[] }>(
+        `${endpoint}${sep}page=${targetPage}&pageSize=${pageSize}`
+      );
+      setItems(res.list);
+      setTotal(res.total);
+    } else {
+      setItems(await api<any[]>(endpoint));
+    }
+  };
   useEffect(() => {
     load().catch(() => {});
-  }, [endpoint]);
+  }, [endpoint, page, pageSize]);
 
   const loadRefs = async () => {
     const needSchools = fields.some((f) => f.refList === "schools");
@@ -137,7 +155,13 @@ export function CrudSection({
       }
       setShowForm(false);
       Notification.success(editing ? "修改已保存" : "添加成功");
-      await load();
+      if (editing) {
+        await load();
+      } else {
+        // 新建排在列表最前，回到第 1 页才能看到
+        setPage(1);
+        await load(1);
+      }
       onDataChange?.();
     } catch (e: any) {
       setError(e.message);
@@ -152,7 +176,13 @@ export function CrudSection({
       await api(`${baseEndpoint}/${item.id}`, { method: "DELETE" });
       Notification.success("删除成功");
       setDeleting(null);
-      await load();
+      // 删掉本页最后一条且不是第一页时，回退一页，避免空页
+      if (pageSize && items.length === 1 && page > 1) {
+        setPage(page - 1);
+        await load(page - 1);
+      } else {
+        await load();
+      }
       onDataChange?.();
     } catch (e: any) {
       Notification.error(e.message || "删除失败");
@@ -192,6 +222,12 @@ export function CrudSection({
               })}
             </Card>
           ))}
+        </div>
+      )}
+
+      {pageSize && total > pageSize && (
+        <div className="flex justify-center pt-3">
+          <Pagination total={total} current={page} pageSize={pageSize} showTotal onChange={(p) => setPage(p)} />
         </div>
       )}
 

@@ -5,8 +5,8 @@ import "animal-island-ui/es/components/Cursor/cursor.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Oak - 儿童成长教育记录",
-  description: "记录孩子的成长、教育与学习点滴",
+  title: "Oak - 我记",
+  description: "记录与我有关的一切——孩子、父母、朋友，随时随手记",
 };
 
 export default function RootLayout({

@@ -95,7 +95,7 @@ export default function TimerPage() {
 
   // document.title 同步倒计时
   useEffect(() => {
-    const base = "Oak - 儿童成长教育记录";
+    const base = "Oak - 我记";
     if (running) {
       const mm = String(Math.floor(left / 60)).padStart(2, "0");
       const ss = String(left % 60).padStart(2, "0");

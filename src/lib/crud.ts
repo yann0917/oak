@@ -35,11 +35,26 @@ export function makeCollectionHandlers(table: AnyTable, opts: CrudOptions = { ap
       }
       conditions.push(eq(table.childId, Number(childId)));
     }
-    const query = db.select().from(table);
-    const rows = conditions.length
-      ? query.where(conditions.length === 1 ? conditions[0] : and(...conditions))
-      : query;
-    const result = orderBy ? rows.orderBy(desc(orderBy)) : rows.orderBy(desc(table.id));
+    const where = conditions.length === 1 ? conditions[0] : and(...conditions);
+    const orderCol = orderBy ?? table.id;
+
+    // 分页：只有带 page 参数时才启用，返回 { total, list }；不带则保持原数组返回，兼容其它调用方
+    if (searchParams.has("page")) {
+      const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
+      const pageSize = Math.min(Math.max(1, Number(searchParams.get("pageSize") ?? 10) || 10), 200);
+      const total = await db.$count(table, where);
+      const list = db
+        .select()
+        .from(table)
+        .where(where)
+        .orderBy(desc(orderCol))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+        .all();
+      return NextResponse.json({ total, list });
+    }
+
+    const result = db.select().from(table).where(where).orderBy(desc(orderCol));
     return NextResponse.json(result.all());
   }
 

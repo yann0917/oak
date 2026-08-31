@@ -125,7 +125,7 @@ function quietResumeAt(range: string, r: Reminder, now: Date): string | null {
 
 export function renderContent(r: Reminder, childName: string, now: Date = new Date()): { title: string; body: string } {
   const vars: [string, string][] = [
-    ["{{child}}", childName || "孩子"],
+    ["{{member}}", childName || "孩子"],
     ["{{target_date}}", r.targetDate],
     ["{{date}}", r.targetDate],
     ["{{days_left}}", daysLeftLabel(r.targetDate, now, r.timezone || DEFAULT_TZ)],

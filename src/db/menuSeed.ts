@@ -21,7 +21,7 @@ export const menuSeedDefs: MenuSeedNode[] = [
   { type: "menu", name: "学费记录", path: "/fees", icon: "icon-shopping", sort: 9 },
   { type: "menu", name: "提醒中心", path: "/reminders", icon: "icon-miles", sort: 10 },
   { type: "menu", name: "政策动态", path: "/policies", icon: "icon-chat", sort: 11 },
-  { type: "menu", name: "子女管理", path: "/children", icon: "icon-miles", sort: 12 },
+  { type: "menu", name: "成员管理", path: "/children", icon: "icon-miles", sort: 12 },
   { type: "menu", name: "设置", path: "/settings", icon: "icon-helicopter", sort: 13 },
   { type: "menu", name: "错题本/笔记", path: "/notes", icon: "icon-critterpedia", sort: 15 },
   {

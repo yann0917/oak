@@ -24,7 +24,7 @@ const OUT_FILE = path.join(ROOT, "src", "generated", "apiPerms.generated.ts");
 const RESOURCE_LABELS = {
   activities: "兴趣班",
   "child-teachers": "师生关联",
-  children: "子女",
+  children: "成员",
   notebooks: "笔记本",
   notes: "错题/笔记",
   review: "错题复习",

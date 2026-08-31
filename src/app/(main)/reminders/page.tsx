@@ -8,6 +8,7 @@ import {
   DatePicker,
   Input,
   Modal,
+  Pagination,
   Select,
   Switch,
   Tabs,
@@ -16,7 +17,11 @@ import {
   Title,
 } from "animal-island-ui";
 import { api } from "@/lib/api";
+import { Pencil, Pill, School, Syringe, Wallet } from "lucide-react";
 import { useChildren } from "@/lib/childContext";
+
+// 模板 icon：lucide 图标名 -> 组件（见 src/lib/reminders/templates.ts）
+const TEMPLATE_ICONS: Record<string, any> = { Syringe, Pill, Wallet, School, Pencil };
 import { Notification } from "@/lib/toast";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { REMINDER_TEMPLATES, type ReminderTemplate } from "@/lib/reminders/templates";
@@ -322,7 +327,9 @@ export default function RemindersPage() {
                           color: "var(--animal-text-color)",
                         }}
                       >
-                        <div className="text-xl mb-1">{tpl.icon}</div>
+                        <div className="mb-1.5 flex items-center justify-center">
+                          <TemplateIcon name={tpl.icon} />
+                        </div>
                         <div className="font-bold">{tpl.label}</div>
                         <div className="mt-0.5" style={{ color: "var(--animal-text-color-secondary)" }}>
                           {tpl.desc}
@@ -403,6 +410,20 @@ export default function RemindersPage() {
   );
 }
 
+// 模板图标：lucide 图标名 -> 组件（名称见 src/lib/reminders/templates.ts），动森样式圆形底色
+function TemplateIcon({ name }: { name: string }) {
+  const TplIcon = TEMPLATE_ICONS[name];
+  if (!TplIcon) return <span className="text-xl">{name}</span>;
+  return (
+    <div
+      className="flex h-10 w-10 items-center justify-center rounded-full"
+      style={{ background: "var(--animal-primary-color-bg)" }}
+    >
+      <TplIcon size={20} style={{ color: "var(--animal-primary-color)" }} />
+    </div>
+  );
+}
+
 // ===== 提醒卡片 =====
 
 function ReminderCard({
@@ -458,7 +479,9 @@ function ReminderCard({
         </div>
         {item.content && (
           <div className="truncate" style={{ maxWidth: 480 }}>
-            {item.content.replaceAll("{{child}}", item.childName || "孩子").replaceAll("{{target_date}}", item.targetDate)}
+            {item.content
+              .replaceAll("{{member}}", item.childName || "孩子")
+              .replaceAll("{{target_date}}", item.targetDate)}
           </div>
         )}
       </div>
@@ -524,7 +547,7 @@ function ReminderFormModal({
             标题 <span style={{ color: "var(--animal-error-color)" }}>*</span>
           </label>
           <Input
-            placeholder="如：{{child}} 疫苗接种提醒"
+            placeholder="如：{{member}} 疫苗接种提醒"
             value={form.title}
             onChange={(e) => set({ title: e.target.value })}
           />
@@ -533,11 +556,11 @@ function ReminderFormModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
-              关联孩子
+              关联成员
             </label>
             <Select
               value={form.childId}
-              placeholder="不选则不含孩子名"
+              placeholder="不选则不含成员名"
               options={kids.map((c) => ({ key: String(c.id), label: c.name }))}
               onChange={(key) => set({ childId: key })}
             />
@@ -642,7 +665,7 @@ function ReminderFormModal({
           <textarea
             className="w-full px-4 py-2.5 text-sm"
             rows={3}
-            placeholder="支持变量：{{child}}、{{days_left}}、{{target_date}}"
+            placeholder="支持变量：{{member}}、{{days_left}}、{{target_date}}"
             value={form.content}
             onChange={(e) => set({ content: e.target.value })}
             style={{
@@ -656,7 +679,7 @@ function ReminderFormModal({
             }}
           />
           <p className="text-xs mt-1" style={{ color: "var(--animal-text-color-secondary)" }}>
-            可用变量：{'{{child}}'} 孩子昵称 · {'{{days_left}}'} 距离事件天数 · {'{{target_date}}'} 事件日期
+            可用变量：{'{{member}}'} 孩子昵称 · {'{{days_left}}'} 距离事件天数 · {'{{target_date}}'} 事件日期
           </p>
         </div>
 
@@ -731,18 +754,46 @@ function ReminderFormModal({
 
 function LogsPanel() {
   const [logs, setLogs] = useState<LogItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [filter, setFilter] = useState("");
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setLogs(await api<LogItem[]>("/api/reminders/logs?limit=50"));
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (filter) params.set("status", filter);
+      const res = await api<{ total: number; list: LogItem[] }>(`/api/reminders/logs?${params}`);
+      setLogs(res.list);
+      setTotal(res.total);
     } catch {}
-  }, []);
+  }, [page, pageSize, filter]);
   useEffect(() => {
     load();
   }, [load]);
 
-  const shown = filter ? logs.filter((l) => l.status === filter) : logs;
+  // 切换筛选或每页条数时回到第一页，避免停留在越界页码
+  const changeFilter = (v: string) => {
+    setFilter(v);
+    setPage(1);
+  };
+
+  const clearLogs = async () => {
+    setClearLoading(true);
+    try {
+      await api("/api/reminders/logs", { method: "DELETE" });
+      Notification.success("发送日志已清空");
+      setClearOpen(false);
+      setPage(1);
+      await load();
+    } catch (e: any) {
+      Notification.error(e.message || "清空失败");
+    } finally {
+      setClearLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -755,14 +806,19 @@ function LogsPanel() {
             { key: "failed", label: "发送失败" },
             { key: "muted", label: "已跳过" },
           ]}
-          onChange={setFilter}
+          onChange={changeFilter}
           aria-label="状态筛选"
         />
-        <span className="text-xs ml-auto" style={{ color: "var(--animal-text-color-secondary)" }}>
-          最近 30 天 · 最多 50 条
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+            最近 30 天
+          </span>
+          <Button size="small" danger onClick={() => setClearOpen(true)}>
+            清空日志
+          </Button>
+        </div>
       </div>
-      {shown.length === 0 ? (
+      {logs.length === 0 ? (
         <Card type="dashed">
           <div className="text-center py-8 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
             暂无发送记录
@@ -770,7 +826,7 @@ function LogsPanel() {
         </Card>
       ) : (
         <div className="grid gap-2">
-          {shown.map((l) => (
+          {logs.map((l) => (
             <Card key={l.id}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
@@ -800,6 +856,31 @@ function LogsPanel() {
           ))}
         </div>
       )}
+      {total > 0 && (
+        <div className="flex justify-center pt-2">
+          <Pagination
+            total={total}
+            current={page}
+            pageSize={pageSize}
+            showTotal
+            onChange={(p, ps) => {
+              if (ps !== pageSize) setPageSize(ps);
+              setPage(p);
+            }}
+          />
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={clearOpen}
+        title="清空日志"
+        content="将删除全部发送日志，不可恢复！"
+        confirmText="清空"
+        danger
+        loading={clearLoading}
+        onConfirm={clearLogs}
+        onClose={() => setClearOpen(false)}
+      />
     </div>
   );
 }

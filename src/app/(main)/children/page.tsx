@@ -88,10 +88,10 @@ export default function ChildrenPage() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <Title size="middle" color="app-teal">
-          子女管理
+          成员管理
         </Title>
         <Button type="primary" onClick={openCreate}>
-          添加孩子
+          添加成员
         </Button>
       </div>
 
@@ -164,7 +164,7 @@ export default function ChildrenPage() {
 
       <Modal
         open={showForm}
-        title={editingId ? "编辑孩子" : "添加孩子"}
+        title={editingId ? "编辑成员" : "添加成员"}
         onClose={() => setShowForm(false)}
         typewriter={false}
         footer={

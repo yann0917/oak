@@ -268,8 +268,8 @@ export const gardenCharacters = sqliteTable("garden_characters", {
 export const reminders = sqliteTable("reminders", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull().default(1), // 归属用户（为多账号预留）
-  childId: integer("child_id"), // 关联孩子（可空，模板渲染 {{child}} 用）
-  title: text("title").notNull(),  content: text("content").notNull().default(""), // 支持 {{child}} {{days_left}} {{target_date}}
+  childId: integer("child_id"), // 关联孩子（可空，模板渲染 {{member}} 用）
+  title: text("title").notNull(),  content: text("content").notNull().default(""), // 支持 {{member}} {{days_left}} {{target_date}}
   scheduleType: text("schedule_type").notNull().default("once"), // once|daily|weekly|monthly|cron
   cronExpr: text("cron_expr").notNull().default(""),
   timeOfDay: text("time_of_day").notNull().default("09:00"), // daily/weekly/monthly 的触发时刻 HH:mm

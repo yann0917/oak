@@ -38,11 +38,11 @@ export default function DashboardPage() {
       <Card type="dashed">
         <div className="text-center py-14">
           <p className="mb-5" style={{ color: "var(--animal-text-color-secondary)" }}>
-            还没有添加孩子档案，先去创建一个吧
+            还没有添加成员档案，先去创建一个吧
           </p>
           <Link href="/children">
             <Button type="primary" size="large">
-              去添加孩子
+              去添加成员
             </Button>
           </Link>
         </div>
@@ -70,7 +70,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* 孩子档案卡 */}
+            {/* 成员档案卡 */}
       <Card color="app-teal" pattern="app-blue">
         <div className="flex items-center gap-5 py-2">
           {currentChild.photo ? (
