@@ -1,0 +1,91 @@
+# 手动部署：在 Actions 页面选择本工作流点 Run workflow 触发。
+# 流程：查找 build 工作流最近一次成功的 oak-dist 制品 → 下载 → scp 到
+# 服务器 /opt/oak/ → 自动解压覆盖（保留 data/、uploads/ 等用户数据）。
+#
+# 需要在仓库 Settings → Secrets and variables → Actions 配置：
+#   OAK_HOST            服务器地址（IP 或域名）
+#   OAK_USER            SSH 用户名
+#   OAK_SSH_KEY         SSH 私钥完整内容（-----BEGIN ... 到 -----END ...）
+#   OAK_PORT            可选，SSH 端口（默认 22）
+#   OAK_KEY_PASSPHRASE  可选，私钥口令
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  deploy:
+    name: 部署到服务器
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OAK_HOST: ${{ secrets.OAK_HOST }}
+      OAK_USER: ${{ secrets.OAK_USER }}
+      OAK_KEY: ${{ secrets.OAK_SSH_KEY }}
+      OAK_PORT: ${{ secrets.OAK_PORT }}
+      OAK_KEY_PASSPHRASE: ${{ secrets.OAK_KEY_PASSPHRASE }}
+
+    steps:
+      - name: 查找最近一次构建制品
+        id: artifact
+        run: |
+          set -euo pipefail
+          ARTIFACT_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=oak-dist&per_page=1")
+          ID=$(echo "${ARTIFACT_JSON}" | jq -r '.artifacts[0].id // empty')
+          EXPIRES=$(echo "${ARTIFACT_JSON}" | jq -r '.artifacts[0].expires_at // empty')
+          if [ -z "${ID}" ]; then
+            echo "::error::未找到 oak-dist 制品，请先在 Actions 页面手动触发一次 Build 工作流"
+            exit 1
+          fi
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          if [ "${NOW}" \> "${EXPIRES}" ]; then
+            echo "::error::最近的 oak-dist 制品已于 ${EXPIRES} 过期（保留 14 天），请先手动触发一次 Build 工作流"
+            exit 1
+          fi
+          echo "最近制品 id=${ID}，过期时间=${EXPIRES}"
+          echo "ARTIFACT_ID=${ID}" >> "${GITHUB_ENV}"
+
+      - name: 下载制品
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" -O artifact.zip
+          if ! unzip -t artifact.zip >/dev/null; then
+            echo "::error::制品下载失败（可能已过期或被清理），请先手动触发一次 Build 工作流"
+            exit 1
+          fi
+          unzip -o artifact.zip
+          ls -lh oak-dist.tar.gz
+
+      - name: 上传并解压到 /opt/oak
+        run: |
+          set -euo pipefail
+          SSH_PORT="${OAK_PORT:-22}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${OAK_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT}" -H "${OAK_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+          # 私钥带口令时经 ssh-agent 挂载（用 printf 逐行生成 askpass，避免 heredoc 缩进问题）
+          if [ -n "${OAK_KEY_PASSPHRASE}" ]; then
+            eval "$(ssh-agent -s)" >/dev/null
+            printf '%s\n' \
+              '#!/bin/sh' \
+              ': "${OAK_KEY_PASSPHRASE:?}"' \
+              'printf "%s\n" "$OAK_KEY_PASSPHRASE"' > /tmp/askpass.sh
+            chmod +x /tmp/askpass.sh
+            export SSH_ASKPASS=/tmp/askpass.sh
+            export SSH_ASKPASS_REQUIRE=force
+            ssh-add ~/.ssh/id_ed25519
+          fi
+
+          SSH_OPTS=(-i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "${SSH_PORT}")
+
+          ssh "${SSH_OPTS[@]}" "${OAK_USER}@${OAK_HOST}" 'mkdir -p /opt/oak'
+          scp "${SSH_OPTS[@]}" oak-dist.tar.gz "${OAK_USER}@${OAK_HOST}:/opt/oak/oak-dist.tar.gz"
+          ssh "${SSH_OPTS[@]}" "${OAK_USER}@${OAK_HOST}" 'set -e; cd /opt/oak && rm -rf .next node_modules server.js public && tar -xzf oak-dist.tar.gz && test -f server.js && test -d .next/static && echo "部署完成，/opt/oak 当前内容：" && ls -la'
