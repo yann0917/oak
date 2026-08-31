@@ -141,7 +141,7 @@ export function dispatchQuickIntent(
     case "reminder": {
       const targetDate = f.targetDate ?? "";
       const advanceDays = /^\d+$/.test(String(f.advanceDays ?? "")) ? String(f.advanceDays) : "";
-      let nextRunAt = "";
+      let computedNext = "";
       try {
         const rem: any = {
           scheduleType: "once",
@@ -153,11 +153,13 @@ export function dispatchQuickIntent(
           enabled: 1,
           retryCount: 0,
         };
-        nextRunAt = computeNextRunAt(rem, new Date()) ?? "";
+        computedNext = computeNextRunAt(rem, new Date()) ?? "";
       } catch {
-        nextRunAt = "";
+        computedNext = "";
       }
-      if (!nextRunAt) return { module: "reminder", label: meta.label, path: "", targetId: null, childId: null };
+      // 目标日期缺失或已过期：仍落库并停用，用户可在提醒中心补日期后重新启用
+      const expiredOrMissing = !computedNext;
+      const nextRunAt = computedNext || new Date(Date.now() + 30 * 86_400_000).toISOString();
       const row = db
         .insert(reminders)
         .values({
@@ -171,7 +173,7 @@ export function dispatchQuickIntent(
           advanceDays,
           nextRunAt,
           timezone: DEFAULT_TZ,
-          enabled: 1,
+          enabled: expiredOrMissing ? 0 : 1,
           retryCount: 0,
         })
         .returning()
