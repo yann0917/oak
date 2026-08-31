@@ -53,11 +53,12 @@ jobs:
       - name: 下载制品
         run: |
           set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" -O artifact.zip
-          if ! unzip -t artifact.zip >/dev/null; then
-            echo "::error::制品下载失败（可能已过期或被清理），请先手动触发一次 Build 工作流"
-            exit 1
-          fi
+          # 注意：新版 gh CLI 已移除 gh api 的 --output 参数，这里用 curl 下载，行为不受 gh 版本影响
+          curl -fsSL --retry 2 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            -o artifact.zip || { echo "::error::制品下载失败（可能已过期或被清理），请先手动触发一次 Build 工作流"; exit 1; }
           unzip -o artifact.zip
           ls -lh oak-dist.tar.gz
 
