@@ -5,7 +5,6 @@ import { aiSettings, children, quickNotes } from "@/db/schema";
 import { authorize, requireUser } from "@/lib/auth";
 import { buildChildBriefs, classifyQuickNote, todayString } from "@/lib/ai/classify";
 import { dispatchQuickIntent } from "@/lib/ai/dispatch";
-import { QUICK_TYPE_META } from "@/lib/quick/meta";
 
 function parseResult(row: any) {
   let result: any = {};
@@ -87,7 +86,7 @@ export async function POST(req: NextRequest) {
       photos.length > 0 && ai.provider === "deepseek" && !ai.model.includes("vision")
         ? "deepseek-v4-flash-vision-exp"
         : ai.model;
-    const intent = await classifyQuickNote(
+    const classified = await classifyQuickNote(
       { baseUrl: ai.baseUrl, apiKey: ai.apiKey, model, provider: ai.provider },
       {
         content,
@@ -97,24 +96,38 @@ export async function POST(req: NextRequest) {
         photos,
       }
     );
-    const target = dispatchQuickIntent(intent, uid, content, defaultChildId, photos);
-    const meta = QUICK_TYPE_META[intent.type];
-    if (!intent.summary) {
-      intent.summary = target.targetId ? `已记入${meta.label}` : `未归属，已保留为${meta.label}`;
+
+    // 多实体分流：一条输入可能拆出多条记录（如 疫苗 + 花费）
+    const entries: any[] = [];
+    const summaries: string[] = [];
+    for (const intent of classified.intents) {
+      const target = dispatchQuickIntent(intent, uid, content, defaultChildId, photos);
+      entries.push({
+        module: target.module,
+        label: target.label,
+        path: target.path,
+        targetId: target.targetId,
+        childId: target.childId,
+      });
+      if (intent.summary) summaries.push(intent.summary);
     }
+    const landed = entries.filter((e) => e.targetId != null).length;
+    const summary =
+      summaries.join("；") ||
+      (landed
+        ? `已记入${[...new Set(entries.filter((e) => e.targetId != null).map((e) => e.label))].join("、")}`
+        : "未匹配到归档模块，已保存为原始记录");
+
     const updated = db
       .update(quickNotes)
       .set({
         status: "processed",
-        aiType: intent.type,
-        childId: target.childId ?? defaultChildId,
+        aiType: entries[0]?.module ?? "other",
+        childId: entries[0]?.childId ?? defaultChildId,
         result: JSON.stringify({
-          summary: intent.summary,
-          ocrText: intent.ocrText,
-          module: target.module,
-          label: target.label,
-          path: target.path,
-          targetId: target.targetId,
+          summary,
+          ocrText: classified.ocrText,
+          entries,
           error: "",
         }),
         processedAt: new Date().toISOString(),

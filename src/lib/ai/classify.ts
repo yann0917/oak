@@ -11,7 +11,7 @@ export interface ChildBrief {
   birthday: string;
 }
 
-/** AI 归纳出的结构化意图（QuickNote 的 Information 层） */
+/** AI 归纳出的结构化意图（QuickNote 的 Information 层，一条输入可能拆出多条） */
 export interface QuickIntent {
   type: QuickType;
   childId: number | null;
@@ -24,7 +24,20 @@ export interface QuickIntent {
   fields: Record<string, any>;
 }
 
-const SYSTEM_PROMPT = `你是家庭记录管家，负责把用户的一句话拆解成一条结构化记录，输出严格的 JSON 对象，不输出任何其他文字或 Markdown。
+/** AI 分类结果：多条意图 + 图片 OCR 原文 */
+export interface ClassifyResult {
+  ocrText: string;
+  intents: QuickIntent[];
+}
+
+const SYSTEM_PROMPT = `你是家庭记录管家，负责把用户的一句话（或一段话/图片）拆解成一条或多条结构化记录，输出严格的 JSON 对象，不输出任何其他文字或 Markdown。
+
+输出格式（唯一格式）：
+{"ocrText": "图片识别出的原始文字（无图为空字符串）", "entries": [{"type": "...", "childId": 1, "date": "YYYY-MM-DD", "title": "短标题", "summary": "该条内容摘要", "fields": {...}}, ...]}
+
+- entries 是数组：一句输入可能包含多个信息，必须拆成多条（如"今天带娃打百白破花了200，回来有点低烧"→ 一条 health（疫苗+低烧）+ 一条 fee（花费200））。实测至少包含一个条目。
+- 每条 entry 的 summary 与 title 只描述该条自身，summary 用 5W1H（谁 Who / 什么 What / 何时 When / 何地 Where / 为何 Why / 如何 How）组织该条内容本身（100 字内），如"小宝接种百白破疫苗（200元），接种后低烧"。⚠️ 不要写"已记入/已添加/归类为"之类的分类动作说明。
+- 无法归类的内容用 other 条目保留，或直接省略。
 
 目标模块 type 只能是以下之一：${QUICK_TYPES.join("|")}
 - health（健康档案）：体检、疫苗、用药、生病、发烧、过敏等。fields: { "healthType": "体检|疫苗|用药|病历", "detail": "补充说明" }
@@ -83,7 +96,7 @@ export function buildChildBriefs(children: { id: number; name: string; nickname:
 export async function classifyQuickNote(
   cfg: AiConfigInput,
   input: { content: string; today: string; children: ChildBrief[]; defaultChildId: number | null; photos?: string[] }
-): Promise<QuickIntent> {
+): Promise<ClassifyResult> {
   const photos = (input.photos ?? []).filter((p) => typeof p === "string" && p.length > 0);
   const userText = JSON.stringify({
     today: input.today,
@@ -101,9 +114,9 @@ export async function classifyQuickNote(
       },
     ],
     temperature: 0.1,
-    maxTokens: 800,
+    maxTokens: 1600,
   });
-  return normalizeIntent(raw);
+  return normalizeResult(raw);
 }
 
 function toStr(v: any, maxLen = 0): string {
@@ -186,4 +199,21 @@ export function normalizeIntent(raw: any): QuickIntent {
     ocrText: toStr(raw?.ocrText, 2000),
     fields,
   };
+}
+
+/** 归一化整个分类结果：兼容 single-object / array / {entries} 三种形态 */
+export function normalizeResult(raw: any): ClassifyResult {
+  let list: any[] = [];
+  if (raw && typeof raw === "object") {
+    if (Array.isArray(raw.entries)) list = raw.entries;
+    else if (Array.isArray(raw)) list = raw;
+    else list = [raw];
+  }
+  const intents = list.map((e) => normalizeIntent(e));
+  if (!intents.length) intents.push(normalizeIntent({ type: "other" }));
+  const ocrText =
+    toStr(raw?.ocrText, 2000) ||
+    toStr(raw?.entries?.[0]?.ocrText, 2000) ||
+    intents.reduce((acc, i) => acc || i.ocrText, "");
+  return { ocrText, intents };
 }

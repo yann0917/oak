@@ -35,7 +35,12 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
         status: "processed",
         aiType: "other",
         childId: null,
-        result: JSON.stringify({ summary: "已保留为原始记录", module: "other", label: "原始记录", path: "", targetId: null, error: "" }),
+        result: JSON.stringify({
+          summary: "已保留为原始记录",
+          ocrText: "",
+          entries: [{ module: "other", label: "原始记录", path: "", targetId: null, childId: null }],
+          error: "",
+        }),
         processedAt: new Date().toISOString(),
       })
       .where(eq(quickNotes.id, note.id))
@@ -66,10 +71,10 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
       childId: target.childId,
       result: JSON.stringify({
         summary: `已记入${target.label}`,
-        module: target.module,
-        label: target.label,
-        path: target.path,
-        targetId: target.targetId,
+        ocrText: "",
+        entries: [
+          { module: target.module, label: target.label, path: target.path, targetId: target.targetId, childId: target.childId },
+        ],
         error: "",
       }),
       processedAt: new Date().toISOString(),

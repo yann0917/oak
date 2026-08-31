@@ -127,14 +127,17 @@ export default function QuickNoteFeed({
         <div className="grid gap-3">
           {notes.map((n0) => {
             const n = parseNote(n0);
+            const res = n.result ?? {};
+            const entries: any[] = Array.isArray(res.entries) ? res.entries : [];
             const statusLabel =
-              n.status === "pending" ? "待归类" : n.status === "failed" ? "识别失败" : n.result?.label ?? "原始记录";
+              n.status === "pending" ? "待归类" : n.status === "failed" ? "识别失败" : entries.length > 1 ? `${entries.length} 条记录` : entries[0]?.label ?? "原始记录";
             const statusColor: TagColor =
               n.status === "failed"
                 ? "app-red"
                 : n.status === "pending"
                   ? "default"
-                  : (QUICK_TYPE_META[n.result?.module as QuickType]?.color ?? "default") as TagColor;
+                  : (QUICK_TYPE_META[entries[0]?.module as QuickType]?.color ?? "default") as TagColor;
+            const viewEntries = entries.filter((e) => e.path);
             return (
               <Card key={n.id}>
                 <div className="flex items-start gap-3">
@@ -143,9 +146,14 @@ export default function QuickNoteFeed({
                   </Tag>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold break-all">{n.content}</p>
-                    {n.status === "processed" && n.result?.summary && (
+                    {n.status === "processed" && res.summary && (
                       <p className="text-xs mt-1" style={{ color: "var(--animal-text-color-secondary)" }}>
-                        {n.result.summary}
+                        {res.summary}
+                      </p>
+                    )}
+                    {entries.length > 1 && (
+                      <p className="text-[11px] mt-1" style={{ color: "var(--animal-text-color-secondary)" }}>
+                        {entries.map((e, i) => `${i + 1}. ${e.label}`).join(" · ")}
                       </p>
                     )}
                     {Array.isArray(n.photos) && n.photos.length > 0 && <PhotoGrid photos={n.photos} />}
@@ -155,15 +163,17 @@ export default function QuickNoteFeed({
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {n.status === "processed" && n.result?.path && (
-                      <Link
-                        href={n.result.path}
-                        className="text-xs font-semibold"
-                        style={{ color: "var(--animal-primary-color)" }}
-                      >
-                        查看
-                      </Link>
-                    )}
+                    {n.status === "processed" &&
+                      viewEntries.map((e, i) => (
+                        <Link
+                          key={`${e.path}-${i}`}
+                          href={e.path}
+                          className="text-xs font-semibold"
+                          style={{ color: "var(--animal-primary-color)" }}
+                        >
+                          查看{e.label}
+                        </Link>
+                      ))}
                     {(n.status === "pending" || n.status === "failed") && (
                       <>
                         <Button size="small" onClick={() => openManual(n)}>
