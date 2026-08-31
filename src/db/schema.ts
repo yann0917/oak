@@ -180,14 +180,33 @@ export const semesters = sqliteTable("semesters", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
-export const feeRecords = sqliteTable("fee_records", {
+// 卡证档案：证件/证明/病历/检测报告等文档原件（照片+关键结构化信息），成员可空（家庭共用）
+export const certArchives = sqliteTable("cert_archives", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
+  childId: integer("child_id"), // 归属成员，可空（如全家共用的证件）
+  category: text("category").notNull().default("证件"), // 证件|证明|病历|检测单|检测报告|协议|证书|其他
+  title: text("title").notNull(),
+  number: text("number").notNull().default(""), // 证号/编号
+  issuer: text("issuer").notNull().default(""), // 签发/出具单位
+  issueDate: text("issue_date").notNull().default(""), // 签发日期 YYYY-MM-DD
+  expireDate: text("expire_date").notNull().default(""), // 到期日期 YYYY-MM-DD，空表示长期
+  content: text("content").notNull().default(""), // 说明/图片识别原文
+  notes: text("notes").notNull().default(""),
+  attachments: text("attachments").notNull().default("[]"), // 原件照片 /uploads/* 路径 JSON 数组
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 账单（原学费记录）：按学期/日期记录家庭收支，支持附凭证
+export const bills = sqliteTable("bills", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   title: text("title").notNull(),
-  type: text("type").notNull().default("学费"), // 学费|餐费|校车费|兴趣班|杂费|其他
+  type: text("type").notNull().default("学费"), // 学费|餐费|校车费|兴趣班|医疗|购物|交通|水电|生活费|收入|其他
+  direction: text("direction").notNull().default("支出"), // 支出|收入
   amount: real("amount").notNull().default(0), // 元
-  date: text("date").notNull().default(""), // 缴费日期
+  date: text("date").notNull().default(""), // 收支日期
   semesterId: integer("semester_id"), // 学期 ID，关联 semesters，可空
   organization: text("organization").notNull().default(""), // 收费单位
   status: text("status").notNull().default("已缴"), // 已缴|未缴
@@ -270,6 +289,7 @@ export const reminders = sqliteTable("reminders", {
   userId: integer("user_id").notNull().default(1), // 归属用户（为多账号预留）
   childId: integer("child_id"), // 关联孩子（可空，模板渲染 {{member}} 用）
   title: text("title").notNull(),  content: text("content").notNull().default(""), // 支持 {{member}} {{days_left}} {{target_date}}
+  attachments: text("attachments").notNull().default("[]"), // 原始文档照片 /uploads/* 路径 JSON 数组
   scheduleType: text("schedule_type").notNull().default("once"), // once|daily|weekly|monthly|cron
   cronExpr: text("cron_expr").notNull().default(""),
   timeOfDay: text("time_of_day").notNull().default("09:00"), // daily/weekly/monthly 的触发时刻 HH:mm
@@ -387,6 +407,38 @@ export const todos = sqliteTable("todos", {
   done: integer("done").notNull().default(0),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
+
+// ===== DIKW 快记（数据层原始流水）=====
+
+// 一句话快记：AI 未启用或归类失败时也保留原始流水，作为 Data 层资产
+export const quickNotes = sqliteTable("quick_notes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  childId: integer("child_id"), // AI 识别或手动归类出的归属成员，可空
+  content: text("content").notNull(), // 原始一句话
+  photos: text("photos").notNull().default("[]"), // 随记照片 /uploads/* 路径 JSON 数组
+  status: text("status").notNull().default("pending"), // pending|processed|failed
+  aiType: text("ai_type"), // health|fee|growth|moment|learning|reminder|todo|policy|other
+  result: text("result").notNull().default("{}"), // JSON：{summary, module, label, path, targetId, error}
+  processedAt: text("processed_at"), // 归类完成时间，未归类为空
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// AI 大模型配置（每用户一行）：OpenAI 兼容接口，apiKey 与 push_channels 同样存库
+export const aiSettings = sqliteTable(
+  "ai_settings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1),
+    provider: text("provider").notNull().default("deepseek"), // deepseek|openai|qwen|zhipu|moonshot|ollama|custom
+    baseUrl: text("base_url").notNull().default(""),
+    apiKey: text("api_key").notNull().default(""),
+    model: text("model").notNull().default(""),
+    enabled: integer("enabled").notNull().default(0),
+    updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [uniqueIndex("idx_ai_settings_user").on(t.userId)]
+);
 
 // ===== 权限（RBAC）：业务表即策略源，Casbin 不建自己的表 =====
 

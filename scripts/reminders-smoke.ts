@@ -26,6 +26,7 @@ function base(over: Partial<Reminder>): Reminder {
     childId: null,
     title: "测试",
     content: "",
+    attachments: "[]",
     scheduleType: "once",
     cronExpr: "",
     timeOfDay: "09:00",

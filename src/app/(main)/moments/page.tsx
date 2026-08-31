@@ -39,7 +39,7 @@ export default function MomentsPage() {
             .map((t: string) => t.trim())
             .filter(Boolean);
           return (
-            <div>
+            <div className="group">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold">{item.title}</span>
                 <span className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
@@ -60,7 +60,7 @@ export default function MomentsPage() {
               )}
               {item.description && (
                 <p
-                  className="text-sm mt-2 whitespace-pre-wrap"
+                  className="text-sm mt-2 whitespace-pre-wrap line-clamp-3 group-hover:line-clamp-none"
                   style={{ color: "var(--animal-text-color-secondary)" }}
                 >
                   {item.description}

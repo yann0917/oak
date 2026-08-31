@@ -17,6 +17,7 @@ import {
   Title,
 } from "animal-island-ui";
 import { api } from "@/lib/api";
+import { PhotoGrid, parseJsonArray } from "@/components/CrudSection";
 import { Pencil, Pill, School, Syringe, Wallet } from "lucide-react";
 import { useChildren } from "@/lib/childContext";
 
@@ -50,6 +51,7 @@ interface ReminderItem {
   childName: string;
   title: string;
   content: string;
+  attachments?: string;
   scheduleType: ScheduleType;
   cronExpr: string;
   timeOfDay: string;
@@ -485,6 +487,7 @@ function ReminderCard({
           </div>
         )}
       </div>
+      <PhotoGrid photos={parseJsonArray(item.attachments)} />
       <div className="mt-3 flex gap-2 flex-wrap">
         <Button size="small" type="primary" loading={testing} onClick={onTest}>
           立即测试推送

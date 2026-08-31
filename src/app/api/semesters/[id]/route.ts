@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  feeRecords,
+  bills,
   learningRecords,
   semesters,
   timetablePeriodOrder,
@@ -80,10 +80,10 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   const used =
     db.select().from(timetableSlots).where(eq(timetableSlots.semesterId, current.id)).get() ||
     db.select().from(learningRecords).where(eq(learningRecords.semesterId, current.id)).get() ||
-    db.select().from(feeRecords).where(eq(feeRecords.semesterId, current.id)).get();
+    db.select().from(bills).where(eq(bills.semesterId, current.id)).get();
   if (used) {
     return NextResponse.json(
-      { error: "该学期正在被课程表、学习情况或学费记录使用，无法删除" },
+      { error: "该学期正在被课程表、学习情况或账单使用，无法删除" },
       { status: 400 }
     );
   }

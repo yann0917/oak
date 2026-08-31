@@ -34,6 +34,71 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "兴趣班·修改"
   },
   {
+    "resource": "ai-settings",
+    "perms": "api:ai-settings:create",
+    "label": "AI 配置·新增"
+  },
+  {
+    "resource": "ai-settings",
+    "perms": "api:ai-settings:list",
+    "label": "AI 配置·查看列表"
+  },
+  {
+    "resource": "ai-settings",
+    "perms": "api:ai-settings:test-post",
+    "label": "AI 配置·测试推送"
+  },
+  {
+    "resource": "bills",
+    "perms": "api:bills:create",
+    "label": "账单·新增"
+  },
+  {
+    "resource": "bills",
+    "perms": "api:bills:delete",
+    "label": "账单·删除"
+  },
+  {
+    "resource": "bills",
+    "perms": "api:bills:detail",
+    "label": "账单·查看详情"
+  },
+  {
+    "resource": "bills",
+    "perms": "api:bills:list",
+    "label": "账单·查看列表"
+  },
+  {
+    "resource": "bills",
+    "perms": "api:bills:update",
+    "label": "账单·修改"
+  },
+  {
+    "resource": "cert-archives",
+    "perms": "api:cert-archives:create",
+    "label": "卡证档案·新增"
+  },
+  {
+    "resource": "cert-archives",
+    "perms": "api:cert-archives:delete",
+    "label": "卡证档案·删除"
+  },
+  {
+    "resource": "cert-archives",
+    "perms": "api:cert-archives:detail",
+    "label": "卡证档案·查看详情"
+  },
+  {
+    "resource": "cert-archives",
+    "perms": "api:cert-archives:list",
+    "label": "卡证档案·查看列表"
+  },
+  {
+    "resource": "cert-archives",
+    "perms": "api:cert-archives:update",
+    "label": "卡证档案·修改"
+  },
+  {
     "resource": "child-teachers",
     "perms": "api:child-teachers:create",
     "label": "师生关联·新增"
@@ -107,31 +172,6 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "enrollments",
     "perms": "api:enrollments:update",
     "label": "就读阶段·修改"
-  },
-  {
-    "resource": "fee-records",
-    "perms": "api:fee-records:create",
-    "label": "学费·新增"
-  },
-  {
-    "resource": "fee-records",
-    "perms": "api:fee-records:delete",
-    "label": "学费·删除"
-  },
-  {
-    "resource": "fee-records",
-    "perms": "api:fee-records:detail",
-    "label": "学费·查看详情"
-  },
-  {
-    "resource": "fee-records",
-    "perms": "api:fee-records:list",
-    "label": "学费·查看列表"
-  },
-  {
-    "resource": "fee-records",
-    "perms": "api:fee-records:update",
-    "label": "学费·修改"
   },
   {
     "resource": "garden-characters",
@@ -377,6 +417,26 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "push-channels",
     "perms": "api:push-channels:update",
     "label": "推送渠道·修改"
+  },
+  {
+    "resource": "quick-notes",
+    "perms": "api:quick-notes:create",
+    "label": "一句话快记·新增"
+  },
+  {
+    "resource": "quick-notes",
+    "perms": "api:quick-notes:delete",
+    "label": "一句话快记·删除"
+  },
+  {
+    "resource": "quick-notes",
+    "perms": "api:quick-notes:list",
+    "label": "一句话快记·查看列表"
+  },
+  {
+    "resource": "quick-notes",
+    "perms": "api:quick-notes:update",
+    "label": "一句话快记·修改"
   },
   {
     "resource": "reminders",

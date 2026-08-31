@@ -171,12 +171,13 @@ CREATE TABLE IF NOT EXISTS semesters (
   notes TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS fee_records (
+CREATE TABLE IF NOT EXISTS bills (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
   child_id INTEGER NOT NULL,
   title TEXT NOT NULL,
   type TEXT NOT NULL DEFAULT '学费',
+  direction TEXT NOT NULL DEFAULT '支出',
   amount REAL NOT NULL DEFAULT 0,
   date TEXT NOT NULL DEFAULT '',
   semester_id INTEGER,
@@ -185,6 +186,43 @@ CREATE TABLE IF NOT EXISTS fee_records (
   notes TEXT NOT NULL DEFAULT '',
   attachments TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS cert_archives (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  child_id INTEGER,
+  category TEXT NOT NULL DEFAULT '证件',
+  title TEXT NOT NULL,
+  number TEXT NOT NULL DEFAULT '',
+  issuer TEXT NOT NULL DEFAULT '',
+  issue_date TEXT NOT NULL DEFAULT '',
+  expire_date TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  attachments TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS quick_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  child_id INTEGER,
+  content TEXT NOT NULL,
+  photos TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending',
+  ai_type TEXT,
+  result TEXT NOT NULL DEFAULT '{}',
+  processed_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  provider TEXT NOT NULL DEFAULT 'deepseek',
+  base_url TEXT NOT NULL DEFAULT '',
+  api_key TEXT NOT NULL DEFAULT '',
+  model TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS policy_notes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -251,6 +289,7 @@ CREATE TABLE IF NOT EXISTS reminders (
   child_id INTEGER,
   title TEXT NOT NULL,
   content TEXT NOT NULL DEFAULT '',
+  attachments TEXT NOT NULL DEFAULT '[]',
   schedule_type TEXT NOT NULL DEFAULT 'once',
   cron_expr TEXT NOT NULL DEFAULT '',
   time_of_day TEXT NOT NULL DEFAULT '09:00',
@@ -389,7 +428,8 @@ CREATE INDEX IF NOT EXISTS idx_health_records_child ON health_records(child_id);
 CREATE INDEX IF NOT EXISTS idx_activities_child ON activities(child_id);
 CREATE INDEX IF NOT EXISTS idx_moments_child ON moments(child_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_slots_child ON timetable_slots(child_id);
-CREATE INDEX IF NOT EXISTS idx_fee_records_child ON fee_records(child_id);
+CREATE INDEX IF NOT EXISTS idx_bills_child ON bills(child_id);
+CREATE INDEX IF NOT EXISTS idx_cert_archives_user ON cert_archives(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_semesters_child ON semesters(child_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_semesters_child_name ON semesters(child_id, name);
 CREATE INDEX IF NOT EXISTS idx_garden_records_child ON garden_records(child_id);
@@ -423,12 +463,14 @@ ensureColumn("schools", "phone", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("schools", "intro", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("timetable_slots", "semester_id", "INTEGER");
 ensureColumn("learning_records", "semester_id", "INTEGER");
-ensureColumn("fee_records", "semester_id", "INTEGER");
+ensureColumn("bills", "semester_id", "INTEGER");
 ensureColumn("push_logs", "content", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("users", "status", "INTEGER NOT NULL DEFAULT 1");
 // review_cards 曾在建表后补过 learning_steps 列（存量库升级）
 ensureColumn("review_cards", "learning_steps", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("quick_notes", "photos", "TEXT NOT NULL DEFAULT '[]'");
+ensureColumn("reminders", "attachments", "TEXT NOT NULL DEFAULT '[]'");
 
 // 业务表按用户归属（存量数据默认归首个账号 admin）
 ensureColumn("children", "user_id", "INTEGER NOT NULL DEFAULT 1");
@@ -444,12 +486,25 @@ ensureColumn("moments", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("timetable_slots", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("timetable_period_order", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("semesters", "user_id", "INTEGER NOT NULL DEFAULT 1");
-ensureColumn("fee_records", "user_id", "INTEGER NOT NULL DEFAULT 1");
+ensureColumn("bills", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("policy_notes", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("garden_records", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("garden_settings", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("garden_mastery", "user_id", "INTEGER NOT NULL DEFAULT 1");
 ensureColumn("garden_characters", "user_id", "INTEGER NOT NULL DEFAULT 1");
+
+// ===== 学费记录 → 账单迁移（幂等）：旧库把 fee_records 全量搬进 bills 后删除旧表 =====
+const oldFeeExists = sqlite
+  .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'fee_records'")
+  .get();
+if (oldFeeExists) {
+  sqlite.exec(`
+INSERT INTO bills (id, user_id, child_id, title, type, direction, amount, date, semester_id, organization, status, notes, attachments, created_at)
+SELECT id, user_id, child_id, title, type, '支出', amount, date, semester_id, organization, status, notes, attachments, created_at
+FROM fee_records;
+DROP TABLE fee_records;
+`);
+}
 
 // ===== 提醒中心多用户迁移：旧库（无 user_id 概念）补齐并按首个账号回填 =====
 // 首个账号（种子 admin）之外的旧数据均归属该账号
@@ -500,7 +555,7 @@ CREATE INDEX IF NOT EXISTS idx_moments_user_child ON moments(user_id, child_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_slots_user_child ON timetable_slots(user_id, child_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_period_order_user_child ON timetable_period_order(user_id, child_id);
 CREATE INDEX IF NOT EXISTS idx_semesters_user_child ON semesters(user_id, child_id);
-CREATE INDEX IF NOT EXISTS idx_fee_records_user_child ON fee_records(user_id, child_id);
+CREATE INDEX IF NOT EXISTS idx_bills_user_child ON bills(user_id, child_id);
 CREATE INDEX IF NOT EXISTS idx_garden_records_user_child ON garden_records(user_id, child_id);
 CREATE INDEX IF NOT EXISTS idx_garden_settings_user_child ON garden_settings(user_id, child_id);
 CREATE INDEX IF NOT EXISTS idx_garden_mastery_user_child ON garden_mastery(user_id, child_id);
@@ -509,6 +564,10 @@ CREATE INDEX IF NOT EXISTS idx_children_user ON children(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_schools_user ON schools(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_teachers_user ON teachers(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_policy_notes_user ON policy_notes(user_id, id);
+
+-- 快记/ai 配置
+CREATE INDEX IF NOT EXISTS idx_quick_notes_user ON quick_notes(user_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_settings_user ON ai_settings(user_id);
 
 -- 错题本/笔记：用户隔离查询 + 复习到期调度主路径
 CREATE INDEX IF NOT EXISTS idx_notebooks_user ON notebooks(user_id, id);
@@ -520,7 +579,7 @@ CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id, id);
 `);
 
 // 旧学期文本迁移（幂等）：term 列还在时，把遗留学期文本按孩子补建入学学期并回填 semester_id，然后删除 term 列
-for (const table of ["timetable_slots", "learning_records", "fee_records"]) {
+for (const table of ["timetable_slots", "learning_records", "bills"]) {
   const cols = (sqlite.pragma(`table_info(${table})`) as any[]).map((c) => c.name);
   if (!cols.includes("term") || !cols.includes("semester_id")) continue;
   const insertSemester = sqlite.prepare(
@@ -552,6 +611,17 @@ if (userCount === 0) {
       "INSERT OR IGNORE INTO users (username, password_hash, display_name, is_admin, status, created_at) VALUES (?, ?, ?, 1, 1, ?)"
     )
     .run("admin", hash, "管理员", new Date().toISOString());
+}
+
+// 菜单改名迁移（旧库）：学费记录 → 账单，路径 /fees → /bills。
+// 必须在权限种子之前执行，否则种子会再插一个「账单」菜单导致重名。
+sqlite.prepare("UPDATE menus SET name = '账单', path = '/bills' WHERE path = '/fees'").run();
+
+// 卡证档案菜单插入迁移（幂等）：老库尚无 /certs 时，把 sort>=10 的菜单整体后移一位，
+// 给新菜单腾出 sort=10 的位置（卡证档案排在账单之后、提醒中心之前）。
+const certMenuExists = sqlite.prepare("SELECT id FROM menus WHERE type = 'menu' AND path = '/certs'").get();
+if (!certMenuExists) {
+  sqlite.exec("UPDATE menus SET sort = sort + 1 WHERE type = 'menu' AND sort >= 10");
 }
 
 // 权限种子：admin 超管升级 + 菜单树 + 示例角色（幂等）

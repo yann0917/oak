@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Button, Card, Divider, Input, Title } from "animal-island-ui";
+import { Button, Card, Input, Title } from "animal-island-ui";
 import { Notification } from "@/lib/toast";
 import { api } from "@/lib/api";
+import AiSettingsCard from "@/components/AiSettingsCard";
 
 export default function SettingsPage() {
   const [username, setUsername] = useState("");
@@ -67,9 +68,11 @@ export default function SettingsPage() {
           设置
         </Title>
         <p className="text-sm mt-3 mb-4" style={{ color: "var(--animal-text-color-secondary)" }}>
-          管理账号个人信息与密码
+          管理账号个人信息、密码与大模型配置
         </p>
       </div>
+
+      <AiSettingsCard />
 
       <Card>
         <h3 className="font-bold mb-4">个人信息</h3>
