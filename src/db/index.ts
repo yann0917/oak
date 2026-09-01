@@ -202,6 +202,26 @@ CREATE TABLE IF NOT EXISTS cert_archives (
   attachments TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS family_insights (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  period TEXT NOT NULL DEFAULT 'monthly',
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'generating',
+  insights TEXT NOT NULL DEFAULT '[]',
+  error TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS family_sops (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  insight_id INTEGER,
+  type TEXT NOT NULL DEFAULT '',
+  insight TEXT NOT NULL DEFAULT '',
+  action_sop TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS quick_notes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
@@ -430,6 +450,8 @@ CREATE INDEX IF NOT EXISTS idx_moments_child ON moments(child_id);
 CREATE INDEX IF NOT EXISTS idx_timetable_slots_child ON timetable_slots(child_id);
 CREATE INDEX IF NOT EXISTS idx_bills_child ON bills(child_id);
 CREATE INDEX IF NOT EXISTS idx_cert_archives_user ON cert_archives(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_family_insights_user ON family_insights(user_id, period, created_at);
+CREATE INDEX IF NOT EXISTS idx_family_sops_user ON family_sops(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_semesters_child ON semesters(child_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_semesters_child_name ON semesters(child_id, name);
 CREATE INDEX IF NOT EXISTS idx_garden_records_child ON garden_records(child_id);

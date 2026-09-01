@@ -180,6 +180,32 @@ export const semesters = sqliteTable("semesters", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+// ===== 家庭脉搏（DIKW 知识层）：AI 复盘洞察与指南 =====
+
+// 周/月复盘结果：每期一条（AI 从流水/账单/健康等数据中提炼的家庭经验）
+export const familyInsights = sqliteTable("family_insights", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  period: text("period").notNull().default("monthly"), // weekly|monthly
+  startDate: text("start_date").notNull(), // 复盘窗口起点（周一/月初）YYYY-MM-DD
+  endDate: text("end_date").notNull(), // 复盘窗口终点（今天）YYYY-MM-DD
+  status: text("status").notNull().default("generating"), // generating|done|failed
+  insights: text("insights").notNull().default("[]"), // JSON：[{type, insight, actionSop}]
+  error: text("error").notNull().default(""),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 用户从洞察中「一键保存至指南」的 SOP（长期家庭知识资产）
+export const familySops = sqliteTable("family_sops", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  insightId: integer("insight_id"), // 来源洞察（可空：手工添加）
+  type: text("type").notNull().default(""),
+  insight: text("insight").notNull().default(""),
+  actionSop: text("action_sop").notNull().default(""),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 // 卡证档案：证件/证明/病历/检测报告等文档原件（照片+关键结构化信息），成员可空（家庭共用）
 export const certArchives = sqliteTable("cert_archives", {
   id: integer("id").primaryKey({ autoIncrement: true }),

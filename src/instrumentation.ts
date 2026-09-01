@@ -4,4 +4,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { startScheduler } = await import("@/lib/reminders/scheduler");
   startScheduler();
+  // 家庭脉搏：周/月复盘自动生成
+  const { startInsightScheduler } = await import("@/lib/insights/scheduler");
+  startInsightScheduler();
 }

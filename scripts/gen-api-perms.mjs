@@ -33,6 +33,8 @@ const RESOURCE_LABELS = {
   enrollments: "就读阶段",
   bills: "账单",
   "cert-archives": "卡证档案",
+  insights: "家庭洞察",
+  "family-sops": "家庭指南",
   "garden-characters": "识字字库",
   "garden-mastery": "知识掌握度",
   "garden-records": "练习记录",

@@ -132,14 +132,18 @@ export async function chatCompletion(cfg: AiConfigInput, opts: ChatOptions): Pro
   return content.trim();
 }
 
-/** 解析模型返回的 JSON（容忍 ```json 围栏与前后杂文本，取第一个 { ... } 区块） */
+/** 解析模型返回的 JSON（容忍 ```json 围栏与前后杂文本，按首个 [ 或 { 截取到对应闭括号） */
 export function parseJSONContent(raw: string): any {
   let text = raw.trim();
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) text = fence[1].trim();
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end > start) text = text.slice(start, end + 1);
+  const starts = ["[", "{"].map((c) => text.indexOf(c)).filter((i) => i !== -1);
+  if (starts.length) {
+    const start = Math.min(...starts);
+    const close = text[start] === "[" ? "]" : "}";
+    const end = text.lastIndexOf(close);
+    if (end > start) text = text.slice(start, end + 1);
+  }
   return JSON.parse(text);
 }
 

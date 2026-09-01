@@ -16,12 +16,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { children: kids, currentChild, setCurrentChildId, loading } = useChildren();
   const { menus } = useProfile();
   const [menuOpen, setMenuOpen] = useState(false);
+  // 折叠的分组菜单 id 集合（未记录 = 展开；点击分组标题切换）
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     api("/api/auth/me").catch(() => {
       router.push("/login");
     });
   }, [router]);
+
+  const toggleGroup = (id: number) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const logout = async () => {
     await api("/api/auth/logout", { method: "POST" });
@@ -36,15 +46,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           if (item.type === "dir") {
             // 目录：仅含按钮（权限点）时跳过，避免出现空分组标题
             if (!(item.children ?? []).some((c) => c.type !== "button")) return null;
+            const isCollapsed = collapsed.has(item.id);
             return (
               <div key={item.id} className={depth === 0 ? "pt-3" : ""}>
-                <div
-                  className="px-3 text-xs font-bold"
-                  style={{ color: "var(--animal-text-color-secondary)" }}
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl text-xs font-bold border-0 cursor-pointer"
+                  style={{ color: "var(--animal-text-color-secondary)", background: "transparent" }}
+                  onClick={() => toggleGroup(item.id)}
+                  aria-expanded={!isCollapsed}
                 >
-                  {item.name}
-                </div>
-                {renderNav(item.children ?? [], onNavigate, depth + 1)}
+                  <span>{item.name}</span>
+                  <span className="text-[10px] leading-none">{isCollapsed ? "▸" : "▾"}</span>
+                </button>
+                {!isCollapsed && renderNav(item.children ?? [], onNavigate, depth + 1)}
               </div>
             );
           }

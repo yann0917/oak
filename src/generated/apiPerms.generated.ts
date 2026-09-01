@@ -174,6 +174,26 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "就读阶段·修改"
   },
   {
+    "resource": "family-sops",
+    "perms": "api:family-sops:create",
+    "label": "家庭指南·新增"
+  },
+  {
+    "resource": "family-sops",
+    "perms": "api:family-sops:delete",
+    "label": "家庭指南·删除"
+  },
+  {
+    "resource": "family-sops",
+    "perms": "api:family-sops:detail",
+    "label": "家庭指南·查看详情"
+  },
+  {
+    "resource": "family-sops",
+    "perms": "api:family-sops:update",
+    "label": "家庭指南·修改"
+  },
+  {
     "resource": "garden-characters",
     "perms": "api:garden-characters:create",
     "label": "识字字库·新增"
@@ -272,6 +292,16 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "health-records",
     "perms": "api:health-records:update",
     "label": "健康档案·修改"
+  },
+  {
+    "resource": "insights",
+    "perms": "api:insights:generate-post",
+    "label": "家庭洞察·generate-post"
+  },
+  {
+    "resource": "insights",
+    "perms": "api:insights:list",
+    "label": "家庭洞察·查看列表"
   },
   {
     "resource": "learning-records",
