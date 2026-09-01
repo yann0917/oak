@@ -13,7 +13,7 @@ export type { OptionItem } from "@/lib/api";
 export interface FieldDef {
   name: string;
   label: string;
-  type?: "text" | "number" | "textarea" | "date" | "select" | "photos";
+  type?: "text" | "number" | "textarea" | "date" | "select" | "photos" | "avatar";
   options?: string[];
   /** select 选项的显示文案映射（key 为字段值） */
   optionLabels?: Record<string, string>;
@@ -102,7 +102,6 @@ export function CrudSection({
     setShowForm(true);
     loadRefs().catch(() => {});
   };
-
   const openEdit = (item: any) => {
     const init: Record<string, any> = {};
     for (const f of fields) {
@@ -249,13 +248,31 @@ export function CrudSection({
           {fields.map((f) => (
             <div
               key={f.name}
-              className={f.full || f.type === "textarea" || f.type === "photos" ? "sm:col-span-2" : ""}
+              className={f.full || f.type === "textarea" || f.type === "photos" || f.type === "avatar" ? "sm:col-span-2" : ""}
             >
               <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
                 {f.label}
                 {f.required && <span style={{ color: "var(--animal-error-color)" }}> *</span>}
               </label>
-              {f.type === "textarea" ? (
+              {f.type === "avatar" ? (
+                <div className="flex items-center gap-4">
+                  <PhotoUploader
+                    multiple={false}
+                    photos={form[f.name] ? [form[f.name]] : []}
+                    onChange={(paths) => setForm({ ...form, [f.name]: paths[0] ?? "" })}
+                  />
+                  {form[f.name] && (
+                    <Button
+                      size="small"
+                      danger
+                      type="text"
+                      onClick={() => setForm({ ...form, [f.name]: "" })}
+                    >
+                      移除头像
+                    </Button>
+                  )}
+                </div>
+              ) : f.type === "textarea" ? (
                 <textarea
                   className="w-full px-4 py-2.5 text-sm"
                   rows={3}

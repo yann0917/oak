@@ -62,6 +62,9 @@ export const teachers = sqliteTable("teachers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   name: text("name").notNull(),
+  avatar: text("avatar").notNull().default(""), // 头像 /uploads/* 路径，可选
+  gender: text("gender").notNull().default(""), // 男 | 女，可选
+  age: integer("age").notNull().default(0), // 年龄，可选
   subject: text("subject").notNull().default(""),
   schoolId: integer("school_id"),
   phone: text("phone").notNull().default(""),

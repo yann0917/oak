@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS teachers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
   name TEXT NOT NULL,
+  avatar TEXT NOT NULL DEFAULT '',
+  gender TEXT NOT NULL DEFAULT '',
+  age INTEGER NOT NULL DEFAULT 0,
   subject TEXT NOT NULL DEFAULT '',
   school_id INTEGER,
   phone TEXT NOT NULL DEFAULT '',
@@ -553,6 +556,11 @@ ensureColumn("todos", "my_day_date", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("todos", "reminder_id", "INTEGER");
 ensureColumn("todos", "completed_at", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("quick_notes", "photos", "TEXT NOT NULL DEFAULT '[]'");
+// 老师头像（可选，单图 /uploads/* 路径）
+ensureColumn("teachers", "avatar", "TEXT NOT NULL DEFAULT ''");
+// 老师性别/年龄（可选）
+ensureColumn("teachers", "gender", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("teachers", "age", "INTEGER NOT NULL DEFAULT 0");
 // AI 助手接口形态：老库 ai_settings 无 api_mode 列，补上（'' = 按预设）
 ensureColumn("ai_settings", "api_mode", "TEXT NOT NULL DEFAULT ''");
 // 联网搜索（AnySearch）API Key：'' = 未配置

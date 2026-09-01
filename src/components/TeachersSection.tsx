@@ -100,19 +100,31 @@ export default function TeachersSection() {
           endpoint="/api/teachers"
           onDataChange={loadTeachers}
           fields={[
+            { name: "avatar", label: "头像（可选）", type: "avatar" },
             { name: "name", label: "姓名", required: true },
+            { name: "gender", label: "性别", type: "select", options: ["男", "女"] },
+            { name: "age", label: "年龄", type: "number", placeholder: "如：45" },
             { name: "subject", label: "科目/职务", placeholder: "如：班主任、语文" },
             { name: "phone", label: "联系方式" },
             { name: "notes", label: "备注", type: "textarea" },
           ]}
           renderItem={(item, actions) => (
             <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "var(--animal-primary-color-bg)" }}
-              >
-                <Icon name="icon-chat" size={22} />
-              </div>
+              {item.avatar ? (
+                <img
+                  src={item.avatar}
+                  alt={item.name}
+                  className="w-10 h-10 rounded-full object-cover shrink-0"
+                  style={{ border: "2px solid var(--animal-border-color-light)" }}
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background: "var(--animal-primary-color-bg)" }}
+                >
+                  <Icon name="icon-chat" size={22} />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="font-bold">
                   {item.name}
@@ -122,8 +134,19 @@ export default function TeachersSection() {
                     </span>
                   )}
                 </p>
-                {item.phone && (
+                {(item.phone || item.gender || item.age > 0) && (
                   <p className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+                    {item.gender && (
+                      <span>
+                        {item.gender}
+                        {(item.age > 0 || item.phone) && " · "}
+                      </span>
+                    )}
+                    {item.age > 0 && (
+                      <span>
+                        {item.age} 岁{(item.phone && " · ") || ""}
+                      </span>
+                    )}
                     {item.phone}
                   </p>
                 )}
