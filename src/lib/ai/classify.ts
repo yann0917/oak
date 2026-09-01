@@ -47,7 +47,7 @@ const SYSTEM_PROMPT = `你是家庭记录管家，负责把用户的一句话（
 - moment（时光）：值得记住的瞬间、开心好玩的事。fields: { "tags": "逗号分隔的标签" }
 - learning（学习）：考试、成绩、作业、上课表现。fields: { "subject": "科目", "grade": "分数/评级", "evaluation": "great|good|ok|poor 或空", "content": "详细描述" }
 - reminder（提醒）：以后要做、要缴费、要打针等带目标日期的事。fields: { "targetDate": "YYYY-MM-DD 或空（事件截止日期，如证件到期日）", "advanceDays": "提前提醒天数（原文提到'提前N天'填 N；'提前一个月'填 30；没提则空）" }
-- todo（待办）：需要做但没有明确日期的任务、想法。fields: {}
+- todo（待办）：需要做但没有明确日期的任务、想法。fields: { "dueDate": "到期日 YYYY-MM-DD 或空（原文提到明天/下周一/月底等）", "priority": "是否重要（用户明确说重要/紧急/加急时 true，否则省略）" }
 - cert（卡证档案）：个人/家庭**持有的文档本身**，需要保存原件照片的——身份证、居住证、户口本、房产证、出生证明、疫苗接种证明、病历、体检报告、化验单、检测单/检测报告、入学证明、合同协议、资格证书等。fields: { "category": "证件|证明|病历|检测单|检测报告|协议|证书|其他", "number": "证号/编号", "issuer": "签发/出具单位", "issueDate": "签发日期 YYYY-MM-DD 或空", "expireDate": "到期日期 YYYY-MM-DD 或空（无有效期则空）" }
 - policy（政策动态）：**面向大众发布的政策/通知/公告**（如某市教育局招生入学政策、部门通告、收费依据文件），是"发布的信息"而不是"我持有的文档"。fields: { "category": "招生入学|升学政策|健康疫苗|减负规定|其他", "content": "公文原文摘录（来自图片时用图片上的文字）" }
 - other：没有明确归属的琐事、灵感、碎碎念。fields: {}
@@ -178,6 +178,10 @@ export function normalizeIntent(raw: any): QuickIntent {
     case "reminder":
       fields.targetDate = toDate(f.targetDate);
       fields.advanceDays = /^\d+$/.test(toStr(f.advanceDays)) ? toStr(f.advanceDays) : "";
+      break;
+    case "todo":
+      fields.dueDate = toDate(f.dueDate);
+      fields.priority = f.priority ? 1 : 0;
       break;
     case "cert":
       fields.category = oneOf(f.category, ["证件", "证明", "病历", "检测单", "检测报告", "协议", "证书", "其他"], "证件");

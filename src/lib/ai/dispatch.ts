@@ -182,7 +182,17 @@ export function dispatchQuickIntent(
       return { module: "reminder", label: meta.label, path: meta.path, targetId: row.id, childId: childId ?? null };
     }
     case "todo": {
-      const row = db.insert(todos).values({ userId, title: intent.title || excerpt(content, 50), done: 0 }).returning().get();
+      const row = db
+        .insert(todos)
+        .values({
+          userId,
+          title: intent.title || excerpt(content, 50),
+          dueDate: f.dueDate ?? "",
+          priority: f.priority ? 1 : 0,
+          done: 0,
+        })
+        .returning()
+        .get();
       return { module: "todo", label: meta.label, path: meta.path, targetId: row.id, childId: null };
     }
     case "cert": {

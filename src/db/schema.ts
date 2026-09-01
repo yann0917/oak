@@ -425,12 +425,41 @@ export const reviewLogs = sqliteTable("review_logs", {
   reviewedAt: text("reviewed_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
-// 待办（实用工具）
+// 待办清单（Microsoft To Do 风格：自定义清单，智能列表为自动视图不落表）
+export const todoLists = sqliteTable("todo_lists", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  name: text("name").notNull(),
+  color: text("color").notNull().default("app-blue"),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 待办（Microsoft To Do 风格）：智能列表（我的一天/重要/计划/任务）+ 清单 + 到期/提醒/重复/星标/备注
 export const todos = sqliteTable("todos", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").notNull().default(1), // 归属用户
   title: text("title").notNull(),
+  listId: integer("list_id"), // 所属清单；null = 智能列表「任务」
+  note: text("note").notNull().default(""),
+  dueDate: text("due_date").notNull().default(""), // 到期日 YYYY-MM-DD
+  remindAt: text("remind_at").notNull().default(""), // 提醒时间 YYYY-MM-DDTHH:mm（转提醒中心 once 提醒）
+  repeatRule: text("repeat_rule").notNull().default(""), // daily|weekly|monthly|yearly|Nd（每 N 天）
+  priority: integer("priority").notNull().default(0), // 1 = 重要（星标）
+  myDayDate: text("my_day_date").notNull().default(""), // 加入「我的一天」的日期 YYYY-MM-DD
+  reminderId: integer("reminder_id"), // 关联的提醒中心提醒（完成/删除时停用）
   done: integer("done").notNull().default(0),
+  completedAt: text("completed_at").notNull().default(""), // 完成时间 ISO
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+// 子任务步骤（不单独设期/提醒，勾选式）
+export const todoSteps = sqliteTable("todo_steps", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户
+  todoId: integer("todo_id").notNull(),
+  title: text("title").notNull(),
+  done: integer("done").notNull().default(0),
+  sort: integer("sort").notNull().default(0),
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 

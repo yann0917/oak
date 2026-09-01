@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, Cursor, Footer, Icon, Select, Title } from "animal-island-ui";
 import type { IconName } from "animal-island-ui";
+import { ChevronDown, ChevronUp, GamepadDirectional, Info, LogOut, Settings } from "lucide-react";
 import { useChildren } from "@/lib/childContext";
 import { useProfile, type ProfileMenu } from "@/lib/profileContext";
 import { api, calcAge } from "@/lib/api";
@@ -14,10 +15,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { children: kids, currentChild, setCurrentChildId, loading } = useChildren();
-  const { menus } = useProfile();
+  const { menus, user } = useProfile();
   const [menuOpen, setMenuOpen] = useState(false);
   // 折叠的分组菜单 id 集合（未记录 = 展开；点击分组标题切换）
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   useEffect(() => {
     api("/api/auth/me").catch(() => {
@@ -145,10 +147,69 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Title>
           </div>
           <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">{renderNav(menus)}</nav>
-          <div className="px-3 pb-4 flex justify-end">
-            <Button size="small" type="text" onClick={logout}>
-              退出
-            </Button>
+          <div className="relative px-3 pb-5 pt-2">
+            {userMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
+                <div
+                  className="absolute bottom-full left-3 right-3 mb-2 z-20 rounded-2xl border-2 bg-white overflow-hidden"
+                  style={{ borderColor: "var(--animal-border-color-light)" }}
+                >
+                  <Link
+                    href="/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold no-underline"
+                    style={{ color: "var(--animal-text-color)" }}
+                  >
+                    <Settings size={16} />
+                    设置
+                  </Link>
+                  <Link
+                    href="/about"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold no-underline"
+                    style={{ color: "var(--animal-text-color)" }}
+                  >
+                    <Info size={16} />
+                    关于
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold border-0 bg-transparent cursor-pointer text-left"
+                    style={{ color: "var(--animal-error-color)" }}
+                  >
+                    <LogOut size={16} />
+                    退出
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border-0 cursor-pointer transition-all duration-300 active:scale-95 hover:opacity-90"
+              style={{ background: "transparent", color: "var(--animal-text-color-secondary)" }}
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              aria-expanded={userMenuOpen}
+              aria-label="用户菜单"
+            >
+              <span
+                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform duration-500"
+                style={{
+                  background: "var(--animal-primary-color-bg)",
+                  color: "var(--animal-primary-color)",
+                  transform: userMenuOpen ? "rotate(360deg)" : "none",
+                }}
+              >
+                <GamepadDirectional size={18} />
+              </span>
+              <span className="flex-1 min-w-0 text-left text-sm font-semibold truncate">
+                {user?.displayName || user?.username || "我"}
+              </span>
+              <span className="shrink-0">
+                {userMenuOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+              </span>
+            </button>
           </div>
         </aside>
 

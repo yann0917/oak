@@ -629,6 +629,41 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "课程表·修改"
   },
   {
+    "resource": "todo-lists",
+    "perms": "api:todo-lists:create",
+    "label": "待办清单·新增"
+  },
+  {
+    "resource": "todo-lists",
+    "perms": "api:todo-lists:delete",
+    "label": "待办清单·删除"
+  },
+  {
+    "resource": "todo-lists",
+    "perms": "api:todo-lists:list",
+    "label": "待办清单·查看列表"
+  },
+  {
+    "resource": "todo-lists",
+    "perms": "api:todo-lists:update",
+    "label": "待办清单·修改"
+  },
+  {
+    "resource": "todo-steps",
+    "perms": "api:todo-steps:create",
+    "label": "待办步骤·新增"
+  },
+  {
+    "resource": "todo-steps",
+    "perms": "api:todo-steps:delete",
+    "label": "待办步骤·删除"
+  },
+  {
+    "resource": "todo-steps",
+    "perms": "api:todo-steps:update",
+    "label": "待办步骤·修改"
+  },
+  {
     "resource": "todos",
     "perms": "api:todos:create",
     "label": "待办·新增"
@@ -642,6 +677,11 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "todos",
     "perms": "api:todos:list",
     "label": "待办·查看列表"
+  },
+  {
+    "resource": "todos",
+    "perms": "api:todos:toggle-post",
+    "label": "待办·开关"
   },
   {
     "resource": "todos",

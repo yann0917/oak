@@ -30,6 +30,8 @@ const RESOURCE_LABELS = {
   review: "错题复习",
   stats: "复习统计",
   todos: "待办",
+  "todo-lists": "待办清单",
+  "todo-steps": "待办步骤",
   enrollments: "就读阶段",
   bills: "账单",
   "cert-archives": "卡证档案",

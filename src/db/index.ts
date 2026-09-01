@@ -405,7 +405,32 @@ CREATE TABLE IF NOT EXISTS todos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
   title TEXT NOT NULL,
+  list_id INTEGER,
+  note TEXT NOT NULL DEFAULT '',
+  due_date TEXT NOT NULL DEFAULT '',
+  remind_at TEXT NOT NULL DEFAULT '',
+  repeat_rule TEXT NOT NULL DEFAULT '',
+  priority INTEGER NOT NULL DEFAULT 0,
+  my_day_date TEXT NOT NULL DEFAULT '',
+  reminder_id INTEGER,
   done INTEGER NOT NULL DEFAULT 0,
+  completed_at TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS todo_lists (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT 'app-blue',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS todo_steps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  todo_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  done INTEGER NOT NULL DEFAULT 0,
+  sort INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
 
@@ -491,6 +516,16 @@ ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("users", "status", "INTEGER NOT NULL DEFAULT 1");
 // review_cards 曾在建表后补过 learning_steps 列（存量库升级）
 ensureColumn("review_cards", "learning_steps", "INTEGER NOT NULL DEFAULT 0");
+// 待办升级（MS To Do 风格）：旧库逐列补齐
+ensureColumn("todos", "list_id", "INTEGER");
+ensureColumn("todos", "note", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("todos", "due_date", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("todos", "remind_at", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("todos", "repeat_rule", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("todos", "priority", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("todos", "my_day_date", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("todos", "reminder_id", "INTEGER");
+ensureColumn("todos", "completed_at", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("quick_notes", "photos", "TEXT NOT NULL DEFAULT '[]'");
 ensureColumn("reminders", "attachments", "TEXT NOT NULL DEFAULT '[]'");
 
@@ -598,6 +633,8 @@ CREATE INDEX IF NOT EXISTS idx_notes_notebook ON notes(user_id, notebook_id);
 CREATE INDEX IF NOT EXISTS idx_review_cards_user_due ON review_cards(user_id, due);
 CREATE INDEX IF NOT EXISTS idx_review_logs_user_reviewed ON review_logs(user_id, reviewed_at);
 CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_todo_lists_user ON todo_lists(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_todo_steps_todo ON todo_steps(user_id, todo_id);
 `);
 
 // 旧学期文本迁移（幂等）：term 列还在时，把遗留学期文本按孩子补建入学学期并回填 semester_id，然后删除 term 列

@@ -212,3 +212,11 @@ input:-webkit-autofill:focus {
     animation: none !important;
   }
 }
+
+/* 白板全屏演示：全屏时铺满整个浏览器视口，去圆角与边框 */
+.whiteboard-shell:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  border: none;
+}

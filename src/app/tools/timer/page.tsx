@@ -127,13 +127,12 @@ export default function TimerPage() {
         <span className="text-xs ml-auto text-secondary">今日已完成 {focusCount} 个番茄</span>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 py-6 max-w-md w-full mx-auto flex flex-col items-center gap-6">
+      <main className="flex-1 overflow-y-auto px-4 py-6 max-w-2xl w-full mx-auto flex flex-col items-center gap-6">
         {/* 模式切换 */}
         <div className="flex gap-2 w-full">
           {(Object.keys(MODES) as Mode[]).map((m) => (
             <Button
               key={m}
-              size="small"
               className="flex-1"
               type={mode === m ? "primary" : "default"}
               onClick={() => switchMode(m)}
@@ -144,15 +143,15 @@ export default function TimerPage() {
         </div>
 
         {/* 大倒计时 */}
-        <div className="w-full bg-white rounded-[32px] p-8 text-center" style={{ boxShadow: "0 12px 32px rgba(61,52,40,0.08)" }}>
+        <div className="w-full bg-white rounded-[40px] p-10 sm:p-14 text-center" style={{ boxShadow: "0 16px 40px rgba(61,52,40,0.10)" }}>
           <div
-            className="text-7xl font-black tabular-nums"
+            className="text-8xl sm:text-9xl font-black tabular-nums"
             style={{ color: mode === "focus" ? "var(--animal-error-color)" : "var(--animal-primary-color-active)" }}
           >
             {mm}:{ss}
           </div>
-          <div className="mt-2 text-sm text-secondary">{MODES[mode].emoji} {MODES[mode].label}</div>
-          <div className="mt-4">
+          <div className="mt-3 text-base sm:text-lg text-secondary">{MODES[mode].emoji} {MODES[mode].label}</div>
+          <div className="mt-6">
             <Progress percent={Math.round(((total - left) / total) * 100)} showInfo={false} />
           </div>
           <div className="flex gap-3 mt-6 justify-center">
