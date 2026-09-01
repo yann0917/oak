@@ -1,6 +1,7 @@
 import { and, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
-import { aiSettings, familyInsights } from "@/db/schema";
+import { familyInsights } from "@/db/schema";
+import { getAiRuntimeConfig } from "@/lib/ai/config";
 import { chatJSON, type AiConfigInput } from "@/lib/ai/client";
 import { todayString } from "@/lib/ai/classify";
 import { aggregateTimeline, dataWindowStart, timelineToText, windowStart, type InsightPeriod } from "./aggregate";
@@ -65,10 +66,11 @@ function normalizeInsights(raw: any): FamilyKnowledge[] {
  * 重入保护：同用户存在 generating 状态时直接返回该行，避免并发重复生成。
  */
 export async function generateInsight(userId: number, period: InsightPeriod) {
-  const ai = db.select().from(aiSettings).where(eq(aiSettings.userId, userId)).get();
-  if (!ai || !ai.enabled || !ai.baseUrl || !ai.model) {
+  const runtime = getAiRuntimeConfig(userId);
+  if (!runtime.enabled || !runtime.provider?.baseUrl || !runtime.provider.model) {
     throw new Error("未配置 AI 助手，请先在「设置 → AI 助手」中启用大模型");
   }
+  const ai = runtime.provider;
   const inFlight = db
     .select()
     .from(familyInsights)

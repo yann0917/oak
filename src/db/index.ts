@@ -237,12 +237,38 @@ CREATE TABLE IF NOT EXISTS quick_notes (
 CREATE TABLE IF NOT EXISTS ai_settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL DEFAULT 1,
-  provider TEXT NOT NULL DEFAULT 'deepseek',
+  enabled INTEGER NOT NULL DEFAULT 0,
+  search_api_key TEXT NOT NULL DEFAULT '',
+  active_provider_id INTEGER,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_providers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  provider TEXT NOT NULL DEFAULT 'custom',
+  name TEXT NOT NULL DEFAULT '',
   base_url TEXT NOT NULL DEFAULT '',
   api_key TEXT NOT NULL DEFAULT '',
   model TEXT NOT NULL DEFAULT '',
-  enabled INTEGER NOT NULL DEFAULT 0,
+  api_mode TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  title TEXT NOT NULL DEFAULT '新对话',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  data TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS policy_notes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -527,6 +553,44 @@ ensureColumn("todos", "my_day_date", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("todos", "reminder_id", "INTEGER");
 ensureColumn("todos", "completed_at", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("quick_notes", "photos", "TEXT NOT NULL DEFAULT '[]'");
+// AI 助手接口形态：老库 ai_settings 无 api_mode 列，补上（'' = 按预设）
+ensureColumn("ai_settings", "api_mode", "TEXT NOT NULL DEFAULT ''");
+// 联网搜索（AnySearch）API Key：'' = 未配置
+ensureColumn("ai_settings", "search_api_key", "TEXT NOT NULL DEFAULT ''");
+// 当前生效的模型配置（多模型改造后指向 ai_providers.id）
+ensureColumn("ai_settings", "active_provider_id", "INTEGER");
+
+// ===== 多模型改造迁移（幂等）：老单行配置 → ai_providers，并设为当前生效 =====
+// 老库 ai_settings 含 provider/base_url 列且尚未迁移（无 active_provider_id 指向的行）时回填
+const aiProvCount = (sqlite.prepare("SELECT COUNT(*) as c FROM ai_providers").get() as any).c;
+const settingsCols = (sqlite.pragma("table_info(ai_settings)") as any[]).map((c: any) => c.name);
+if (aiProvCount === 0 && settingsCols.includes("base_url")) {
+  const legacyRows = sqlite
+    .prepare("SELECT user_id, provider, base_url, api_key, model, api_mode FROM ai_settings WHERE base_url IS NOT NULL AND base_url != ''")
+    .all() as any[];
+  for (const row of legacyRows) {
+    const ins = sqlite
+      .prepare(
+        "INSERT INTO ai_providers (user_id, provider, name, base_url, api_key, model, api_mode, created_at, updated_at) VALUES (?, ?, '', ?, ?, ?, ?, ?, ?)"
+      )
+      .run(row.user_id, row.provider || "custom", row.base_url, row.api_key || "", row.model || "", row.api_mode || "", new Date().toISOString(), new Date().toISOString());
+    const provId = Number(ins.lastInsertRowid);
+    sqlite
+      .prepare("UPDATE ai_settings SET active_provider_id = ? WHERE user_id = ?")
+      .run(provId, row.user_id);
+  }
+}
+// 每用户每服务商唯一：先按最早行去重（防御多版本数据），再建唯一索引
+sqlite.exec(`
+DELETE FROM ai_providers WHERE id NOT IN (SELECT MIN(id) FROM ai_providers GROUP BY user_id, provider);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_providers_user_type ON ai_providers(user_id, provider);
+`);
+// 老库 ai_settings 可能还留着一个默认深空配置行且 enabled=1（全新库无 provider 列，无影响）；
+// 若 settings 未指向任何 provider 且存在 provider 行，兜底指向第一条
+sqlite.exec(`
+UPDATE ai_settings SET active_provider_id = (SELECT id FROM ai_providers WHERE user_id = ai_settings.user_id ORDER BY id LIMIT 1)
+WHERE active_provider_id IS NULL AND EXISTS (SELECT 1 FROM ai_providers WHERE user_id = ai_settings.user_id);
+`);
 ensureColumn("reminders", "attachments", "TEXT NOT NULL DEFAULT '[]'");
 
 // 业务表按用户归属（存量数据默认归首个账号 admin）
@@ -625,6 +689,12 @@ CREATE INDEX IF NOT EXISTS idx_policy_notes_user ON policy_notes(user_id, id);
 -- 快记/ai 配置
 CREATE INDEX IF NOT EXISTS idx_quick_notes_user ON quick_notes(user_id, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_settings_user ON ai_settings(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_providers_user ON ai_providers(user_id, id);
+
+-- AI 助手会话/消息
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id, id);
 
 -- 错题本/笔记：用户隔离查询 + 复习到期调度主路径
 CREATE INDEX IF NOT EXISTS idx_notebooks_user ON notebooks(user_id, id);

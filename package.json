@@ -11,7 +11,10 @@
     "postinstall": "node scripts/copy-mediapipe-assets.mjs"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.53",
+    "@ai-sdk/react": "^4.0.90",
     "@mediapipe/tasks-vision": "^1.0.1",
+    "ai": "^7.0.87",
     "animal-island-ui": "^1.8.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
@@ -32,10 +35,12 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.10.1",
     "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "tldraw": "^5.3.2",
     "ts-fsrs": "^5.4.1",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

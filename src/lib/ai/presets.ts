@@ -1,23 +1,61 @@
 /**
- * 大模型预设（全部 OpenAI 兼容 /chat/completions）：
- * 设置页选择预设自动填充 base_url/model，key 存 ai_settings 表。
+ * 大模型预设：设置页选择预设自动填充 base_url/model，key 存 ai_settings 表。
+ *
+ * apiMode：AI 助手（AI SDK）使用的接口形态——
+ * - responses = OpenAI Responses API（原生支持 tools/agent 流式，DeepSeek V4 官方支持）
+ * - chat = Chat Completions（仅支持 OpenAI 兼容 chat/completions 的服务商）
+ * 快记归类/家庭洞察沿用 openai SDK 的 /chat/completions，不受 apiMode 影响。
  */
 export interface AiPreset {
   key: string;
   label: string;
   baseUrl: string;
   model: string;
+  /** responses | chat；设置页还允许用户在「接口类型」里覆盖并保存 */
+  apiMode: "responses" | "chat";
   desc?: string;
 }
 
 export const AI_PRESETS: AiPreset[] = [
-  { key: "deepseek", label: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash", desc: "推荐；带图快记自动用视觉模型 deepseek-v4-flash-vision-exp，模型名可改 deepseek-v4-pro" },
-  { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" },
-  { key: "qwen", label: "通义千问（阿里云百炼）", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen-plus" },
-  { key: "zhipu", label: "智谱 GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4-flash" },
-  { key: "moonshot", label: "Kimi（月之暗面）", baseUrl: "https://api.moonshot.cn/v1", model: "moonshot-v1-8k" },
-  { key: "ollama", label: "Ollama（本地）", baseUrl: "http://127.0.0.1:11434/v1", model: "llama3.1", desc: "本地模型，无需密钥" },
-  { key: "custom", label: "自定义", baseUrl: "", model: "", desc: "任意 OpenAI 兼容接口，填写 base_url 与模型名" },
+  {
+    key: "deepseek",
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-v4-flash",
+    apiMode: "responses",
+    desc: "推荐；原生支持 Responses API，对 AI 助手工具调用更友好。模型名可改 deepseek-v4-pro",
+  },
+  {
+    key: "openai",
+    label: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    apiMode: "responses",
+  },
+  {
+    key: "moonshot",
+    label: "Kimi（月之暗面）",
+    baseUrl: "https://api.moonshot.cn/v1",
+    model: "kimi-k3",
+    apiMode: "responses",
+    desc: "原生支持 Responses API（/v1/responses），当前仅 kimi-k3 走该接口",
+  },
+  {
+    key: "qwen",
+    label: "通义千问（阿里云百炼）",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen3.7-plus",
+    apiMode: "responses",
+    desc: "compatible-mode 原生支持 Responses API（/v1/responses）；模型可改 qwen-plus/qwen-max 等",
+  },
+  {
+    key: "custom",
+    label: "自定义",
+    baseUrl: "",
+    model: "",
+    apiMode: "chat",
+    desc: "任意接口：支持 Responses API 的填 responses，仅支持 chat/completions 的填 chat",
+  },
 ];
 
 export function presetByKey(key: string): AiPreset | undefined {

@@ -34,19 +34,64 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "兴趣班·修改"
   },
   {
+    "resource": "ai-chat",
+    "perms": "api:ai-chat:create",
+    "label": "AI 助手·新增"
+  },
+  {
+    "resource": "ai-chat-sessions",
+    "perms": "api:ai-chat-sessions:create",
+    "label": "AI 会话·新增"
+  },
+  {
+    "resource": "ai-chat-sessions",
+    "perms": "api:ai-chat-sessions:delete",
+    "label": "AI 会话·删除"
+  },
+  {
+    "resource": "ai-chat-sessions",
+    "perms": "api:ai-chat-sessions:detail",
+    "label": "AI 会话·查看详情"
+  },
+  {
+    "resource": "ai-chat-sessions",
+    "perms": "api:ai-chat-sessions:list",
+    "label": "AI 会话·查看列表"
+  },
+  {
+    "resource": "ai-providers",
+    "perms": "api:ai-providers:create",
+    "label": "模型配置·新增"
+  },
+  {
+    "resource": "ai-providers",
+    "perms": "api:ai-providers:delete",
+    "label": "模型配置·删除"
+  },
+  {
+    "resource": "ai-providers",
+    "perms": "api:ai-providers:update",
+    "label": "模型配置·修改"
+  },
+  {
+    "resource": "ai-settings",
+    "perms": "api:ai-settings:balance-get",
+    "label": "AI 设置·balance-get"
+  },
+  {
     "resource": "ai-settings",
     "perms": "api:ai-settings:create",
-    "label": "AI 配置·新增"
+    "label": "AI 设置·新增"
   },
   {
     "resource": "ai-settings",
     "perms": "api:ai-settings:list",
-    "label": "AI 配置·查看列表"
+    "label": "AI 设置·查看列表"
   },
   {
     "resource": "ai-settings",
     "perms": "api:ai-settings:test-post",
-    "label": "AI 配置·测试推送"
+    "label": "AI 设置·测试推送"
   },
   {
     "resource": "bills",

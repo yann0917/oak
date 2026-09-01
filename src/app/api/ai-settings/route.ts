@@ -1,21 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { aiSettings } from "@/db/schema";
+import { aiProviders, aiSettings } from "@/db/schema";
 import { authorize, requireUser } from "@/lib/auth";
-import { AI_PROVIDER_KEYS } from "@/lib/ai/presets";
 
-/** 读取当前用户的大模型配置（未配置返回 null） */
+/** 读取 AI 设置：全局项（启用/搜索 key/当前模型 id）+ 模型配置列表 */
 export async function GET(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
   const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:ai-settings:list");
   if (denied) return denied;
-  const row = db.select().from(aiSettings).where(eq(aiSettings.userId, auth.user.id)).get();
-  return NextResponse.json(row ?? null);
+
+  const s = db.select().from(aiSettings).where(eq(aiSettings.userId, auth.user.id)).get();
+  const providers = db
+    .select({
+      id: aiProviders.id,
+      provider: aiProviders.provider,
+      name: aiProviders.name,
+      baseUrl: aiProviders.baseUrl,
+      apiKey: aiProviders.apiKey,
+      model: aiProviders.model,
+      apiMode: aiProviders.apiMode,
+      updatedAt: aiProviders.updatedAt,
+    })
+    .from(aiProviders)
+    .where(eq(aiProviders.userId, auth.user.id))
+    .orderBy(desc(aiProviders.id))
+    .all();
+
+  return NextResponse.json({
+    enabled: !!s?.enabled,
+    searchApiKey: s?.searchApiKey || "",
+    activeProviderId: s?.activeProviderId ?? null,
+    providers,
+  });
 }
 
-/** 保存当前用户的大模型配置（每用户一行，存在即覆盖） */
+/** 保存全局设置：启用开关 + AnySearch key + 当前生效模型 */
 export async function POST(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
@@ -24,29 +45,29 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   const body = await req.json();
-  const provider = typeof body.provider === "string" && AI_PROVIDER_KEYS.includes(body.provider) ? body.provider : "custom";
-  const baseUrl = typeof body.baseUrl === "string" ? body.baseUrl.trim() : "";
-  const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
-  const model = typeof body.model === "string" ? body.model.trim() : "";
-  if (!baseUrl || !model) return NextResponse.json({ error: "接口地址与模型名称不能为空" }, { status: 400 });
   const enabled = body.enabled ? 1 : 0;
+  const searchApiKey = typeof body.searchApiKey === "string" ? body.searchApiKey.trim() : "";
+  let activeProviderId = Number(body.activeProviderId) || null;
+  if (activeProviderId != null) {
+    const owned = db
+      .select({ id: aiProviders.id })
+      .from(aiProviders)
+      .where(eq(aiProviders.id, activeProviderId))
+      .get();
+    if (!owned) {
+      return NextResponse.json({ error: "当前模型不存在" }, { status: 400 });
+    }
+  }
 
   const now = new Date().toISOString();
   const existing = db.select().from(aiSettings).where(eq(aiSettings.userId, uid)).get();
-  let row;
   if (existing) {
-    row = db
-      .update(aiSettings)
-      .set({ provider, baseUrl, apiKey, model, enabled, updatedAt: now })
-      .where(eq(aiSettings.id, existing.id))
-      .returning()
-      .get();
+    db.update(aiSettings)
+      .set({ enabled, searchApiKey, activeProviderId, updatedAt: now })
+      .where(eq(aiSettings.userId, uid))
+      .run();
   } else {
-    row = db
-      .insert(aiSettings)
-      .values({ userId: uid, provider, baseUrl, apiKey, model, enabled, updatedAt: now })
-      .returning()
-      .get();
+    db.insert(aiSettings).values({ userId: uid, enabled, searchApiKey, activeProviderId, updatedAt: now }).run();
   }
-  return NextResponse.json(row, { status: existing ? 200 : 201 });
+  return NextResponse.json({ ok: true });
 }

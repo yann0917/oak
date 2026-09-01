@@ -3,6 +3,7 @@ import {
   text,
   integer,
   real,
+  index,
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
@@ -479,20 +480,67 @@ export const quickNotes = sqliteTable("quick_notes", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
-// AI 大模型配置（每用户一行）：OpenAI 兼容接口，apiKey 与 push_channels 同样存库
+// AI 助手全局设置（每用户一行）：启用开关 + 联网搜索 key + 当前生效的模型配置
 export const aiSettings = sqliteTable(
   "ai_settings",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     userId: integer("user_id").notNull().default(1),
-    provider: text("provider").notNull().default("deepseek"), // deepseek|openai|qwen|zhipu|moonshot|ollama|custom
-    baseUrl: text("base_url").notNull().default(""),
-    apiKey: text("api_key").notNull().default(""),
-    model: text("model").notNull().default(""),
     enabled: integer("enabled").notNull().default(0),
+    searchApiKey: text("search_api_key").notNull().default(""), // AnySearch 联网搜索 API Key（可选）
+    activeProviderId: integer("active_provider_id"), // 当前生效的 ai_providers.id
     updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (t) => [uniqueIndex("idx_ai_settings_user").on(t.userId)]
+);
+
+// 模型配置（每用户每个服务商一条）：锁定的服务商列表 + 右侧随时可改的 base_url/model/api_key
+export const aiProviders = sqliteTable(
+  "ai_providers",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1), // 归属用户
+    provider: text("provider").notNull().default("custom"), // deepseek|openai|moonshot|qwen|custom（预设 key）
+    name: text("name").notNull().default(""), // 显示名，空则用预设 label
+    baseUrl: text("base_url").notNull().default(""),
+    apiKey: text("api_key").notNull().default(""),
+    model: text("model").notNull().default(""),
+    apiMode: text("api_mode").notNull().default(""), // 接口形态：'' = 按预设 | responses | chat
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [uniqueIndex("idx_ai_providers_user_type").on(t.userId, t.provider)]
+);
+
+// ===== AI 助手（对话会话与消息入库）=====
+
+export const chatSessions = sqliteTable(
+  "chat_sessions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1), // 归属用户
+    title: text("title").notNull().default("新对话"), // 首条用户消息截断生成
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [index("idx_chat_sessions_user").on(t.userId)]
+);
+
+export const chatMessages = sqliteTable(
+  "chat_messages",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sessionId: integer("session_id").notNull().references(() => chatSessions.id, { onDelete: "cascade" }),
+    userId: integer("user_id").notNull().default(1), // 归属用户
+    role: text("role").notNull(), // user | assistant
+    content: text("content").notNull().default(""), // 消息正文
+    data: text("data").notNull().default("{}"), // JSON：assistant 的工具调用摘要 {toolCalls:[{name,input,result}]}
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [
+    index("idx_chat_messages_session").on(t.sessionId),
+    index("idx_chat_messages_user").on(t.userId),
+  ]
 );
 
 // ===== 权限（RBAC）：业务表即策略源，Casbin 不建自己的表 =====

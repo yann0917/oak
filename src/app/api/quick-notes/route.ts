@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { aiSettings, children, quickNotes } from "@/db/schema";
+import { children, quickNotes } from "@/db/schema";
+import { getAiRuntimeConfig } from "@/lib/ai/config";
 import { authorize, requireUser } from "@/lib/auth";
 import { buildChildBriefs, classifyQuickNote, todayString } from "@/lib/ai/classify";
 import { dispatchQuickIntent } from "@/lib/ai/dispatch";
@@ -75,10 +76,11 @@ export async function POST(req: NextRequest) {
     .returning()
     .get();
 
-  const ai = db.select().from(aiSettings).where(eq(aiSettings.userId, uid)).get();
-  if (!ai || !ai.enabled || !ai.baseUrl || !ai.model) {
+  const runtime = getAiRuntimeConfig(uid); // 全局设置 + 当前生效模型（多模型列表中的 active）
+  if (!runtime.enabled || !runtime.provider?.baseUrl || !runtime.provider.model) {
     return NextResponse.json(parseResult(note), { status: 201 });
   }
+  const ai = runtime.provider;
 
   try {
     // DeepSeek 视觉为实验模型：带图时自动切换（用户已显式配置视觉模型则不覆盖）
