@@ -3,9 +3,9 @@
 // Microsoft To Do 风格待办：智能列表（我的一天/重要/计划/任务）+ 自定义清单 +
 // 到期日/提醒（联动提醒中心）/重复/重要星标/备注/子任务步骤
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, Input, Modal, Select, Tag } from "animal-island-ui";
+import { Button, Card, DatePicker, Input, Modal, Select, Tag, TimePicker } from "animal-island-ui";
 import type { TagColor } from "animal-island-ui";
-import { AlarmClock, Repeat, Star } from "lucide-react";
+import { AlarmClock, CalendarDays, ClipboardList, Repeat, Star, Sun } from "lucide-react";
 import { Notification } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -41,11 +41,11 @@ interface TodoList {
   color: string;
 }
 
-const SMART_VIEWS: { key: View; label: string; emoji: string }[] = [
-  { key: "myday", label: "我的一天", emoji: "🌞" },
-  { key: "important", label: "重要", emoji: "⭐" },
-  { key: "planned", label: "计划", emoji: "📅" },
-  { key: "tasks", label: "任务", emoji: "📋" },
+const SMART_VIEWS: { key: View; label: string; icon: any }[] = [
+  { key: "myday", label: "我的一天", icon: Sun },
+  { key: "important", label: "重要", icon: Star },
+  { key: "planned", label: "计划", icon: CalendarDays },
+  { key: "tasks", label: "任务", icon: ClipboardList },
 ];
 
 const LIST_COLORS = ["app-blue", "app-green", "app-orange", "app-teal", "purple", "app-yellow", "warm-peach-pink"];
@@ -95,6 +95,8 @@ export default function TodoPage() {
   const [listSaving, setListSaving] = useState(false);
   const [deleting, setDeleting] = useState<Todo | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deletingList, setDeletingList] = useState<TodoList | null>(null);
+  const [listDeleteLoading, setListDeleteLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -241,15 +243,22 @@ export default function TodoPage() {
     }
   };
 
-  const deleteList = async (item: TodoList) => {
-    if (!window.confirm(`删除清单「${item.name}」？清单内任务会保留并回到「任务」列表。`)) return;
+  const requestDeleteList = (item: TodoList) => setDeletingList(item);
+
+  const confirmDeleteList = async () => {
+    if (!deletingList) return;
+    setListDeleteLoading(true);
     try {
-      await api(`/api/todo-lists/${item.id}`, { method: "DELETE" });
-      setLists((prev) => prev.filter((l) => l.id !== item.id));
-      setTodos((prev) => prev.map((x) => (x.listId === item.id ? { ...x, listId: null } : x)));
-      if (view === `list:${item.id}`) setView("tasks");
+      await api(`/api/todo-lists/${deletingList.id}`, { method: "DELETE" });
+      setLists((prev) => prev.filter((l) => l.id !== deletingList.id));
+      setTodos((prev) => prev.map((x) => (x.listId === deletingList.id ? { ...x, listId: null } : x)));
+      if (view === `list:${deletingList.id}`) setView("tasks");
+      setDeletingList(null);
+      Notification.success("清单已删除，任务已回到「任务」列表");
     } catch (err: any) {
       Notification.error(err.message || "删除失败");
+    } finally {
+      setListDeleteLoading(false);
     }
   };
 
@@ -286,22 +295,25 @@ export default function TodoPage() {
       <div className="space-y-4">
         <Card>
           <div className="flex gap-2 overflow-x-auto md:flex-col md:gap-1 md:overflow-visible">
-            {SMART_VIEWS.map((v) => (
-              <button
-                key={v.key}
-                type="button"
-                className="flex items-center gap-2.5 md:w-full px-3 py-2.5 rounded-2xl text-sm font-semibold border-0 cursor-pointer whitespace-nowrap"
-                style={
-                  view === v.key
-                    ? { background: "var(--animal-primary-color-bg)", color: "var(--animal-primary-color)" }
-                    : { background: "transparent", color: "var(--animal-text-color-secondary)" }
-                }
-                onClick={() => setView(v.key)}
-              >
-                <span>{v.emoji}</span>
-                {v.label}
-              </button>
-            ))}
+            {SMART_VIEWS.map((v) => {
+              const Icon = v.icon;
+              return (
+                <button
+                  key={v.key}
+                  type="button"
+                  className="flex items-center gap-2.5 md:w-full px-3 py-2.5 rounded-2xl text-sm font-semibold border-0 cursor-pointer whitespace-nowrap"
+                  style={
+                    view === v.key
+                      ? { background: "var(--animal-primary-color-bg)", color: "var(--animal-primary-color)" }
+                      : { background: "transparent", color: "var(--animal-text-color-secondary)" }
+                  }
+                  onClick={() => setView(v.key)}
+                >
+                  <Icon size={16} />
+                  {v.label}
+                </button>
+              );
+            })}
           </div>
         </Card>
         <Card>
@@ -350,7 +362,7 @@ export default function TodoPage() {
                       aria-label="删除清单"
                       className="text-xs border-0 bg-transparent cursor-pointer"
                       style={{ color: "var(--animal-error-color)" }}
-                      onClick={() => deleteList(l)}
+                      onClick={() => requestDeleteList(l)}
                     >
                       ×
                     </button>
@@ -550,6 +562,17 @@ export default function TodoPage() {
       </Modal>
 
       <ConfirmDialog
+        open={!!deletingList}
+        title="删除清单"
+        content={`确定删除清单「${deletingList?.name ?? ""}」？清单内任务会保留并回到「任务」列表，不会丢失。`}
+        confirmText="删除"
+        danger
+        loading={listDeleteLoading}
+        onConfirm={confirmDeleteList}
+        onClose={() => setDeletingList(null)}
+      />
+
+      <ConfirmDialog
         open={!!deleting}
         title="删除任务"
         content={`确定删除「${deleting?.title ?? ""}」？关联提醒会一并停用。`}
@@ -607,7 +630,18 @@ function TodoCard({
   const due = dueMeta(todo.dueDate);
   const [stepInput, setStepInput] = useState("");
   const [note, setNote] = useState(todo.note);
+  // 提醒的日期/时间本地暂存（避免只选一半时把 remindAt 清空导致选不上）；时间默认早上 7 点
+  const [remindDate, setRemindDate] = useState(todo.remindAt ? todo.remindAt.slice(0, 10) : "");
+  const [remindTime, setRemindTime] = useState(todo.remindAt ? todo.remindAt.slice(11, 16) : "07:00");
   const listName = lists.find((l) => l.id === todo.listId)?.name;
+
+  /** 组合提醒日期+时间（两者齐全才写入；清空一侧即取消提醒） */
+  const applyRemind = (datePart: string, timePart: string) => {
+    setRemindDate(datePart);
+    setRemindTime(timePart);
+    if (datePart && timePart) onSave(todo.id, { remindAt: `${datePart}T${timePart}` });
+    else onSave(todo.id, { remindAt: "" });
+  };
 
   return (
     <div>
@@ -693,28 +727,41 @@ function TodoCard({
             />
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-xs mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
                 到期日
               </label>
-              <input
-                type="date"
-                value={todo.dueDate}
-                onChange={(e) => onSave(todo.id, { dueDate: e.target.value })}
-                style={inputStyle}
+              <DatePicker
+                value={todo.dueDate || null}
+                allowClear
+                placeholder="选择日期"
+                onChange={(v) => onSave(todo.id, { dueDate: typeof v === "string" ? v : "" })}
               />
             </div>
             <div>
               <label className="block text-xs mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
                 提醒（联动提醒中心，可推送）
               </label>
-              <input
-                type="datetime-local"
-                value={todo.remindAt}
-                onChange={(e) => onSave(todo.id, { remindAt: e.target.value })}
-                style={inputStyle}
-              />
+              <div className="flex gap-1.5">
+                <div className="flex-1 min-w-0">
+                  <DatePicker
+                    value={remindDate || null}
+                    allowClear
+                    placeholder="日期"
+                    onChange={(v) => applyRemind(typeof v === "string" ? v : "", remindTime)}
+                  />
+                </div>
+                <div className="w-[104px] shrink-0">
+                  <TimePicker
+                    value={remindTime || undefined}
+                    format="HH:mm"
+                    minuteStep={5}
+                    allowClear
+                    onChange={(v) => applyRemind(remindDate, v ? v.slice(0, 5) : "")}
+                  />
+                </div>
+              </div>
             </div>
             <div>
               <label className="block text-xs mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>

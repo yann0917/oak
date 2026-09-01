@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, Title, Input, Button, Tag, DatePicker } from "animal-island-ui";
 import { api } from "@/lib/api";
+import { Notification } from "@/lib/toast";
 import { useChildren } from "@/lib/childContext";
 import {
   STANDARD_DATA,
@@ -279,7 +280,7 @@ export default function GrowthAssessmentPage() {
       a.download = `生长测评_${currentChild.name}_${mdate}.png`;
       a.click();
     } catch {
-      alert("图片加载失败，请稍后重试");
+      Notification.error("图片加载失败，请稍后重试");
     } finally {
       setSaving(false);
     }

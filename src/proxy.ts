@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-// Edge runtime（middleware）无法使用 better-sqlite3/Casbin，这里只做 JWT 验签；
+// Edge runtime（proxy）无法使用 better-sqlite3/Casbin，这里只做 JWT 验签；
 // 用户是否停用、细粒度权限校验在 Node runtime 的 API 路由里完成（auth.requireUser / authorize）。
 const secret = new TextEncoder().encode(process.env.AUTH_SECRET || "edu-tracker-dev-secret-change-me");
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
   if (!token) return redirectToLogin(req);
   try {

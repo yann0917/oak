@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, Cursor, Footer, Icon, Select, Title } from "animal-island-ui";
 import type { IconName } from "animal-island-ui";
-import { ChevronDown, ChevronUp, GamepadDirectional, Info, LogOut, Settings } from "lucide-react";
+import { ChevronDown, ChevronUp, GamepadDirectional, Info, LogOut, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import { useChildren } from "@/lib/childContext";
 import { useProfile, type ProfileMenu } from "@/lib/profileContext";
 import { api, calcAge } from "@/lib/api";
@@ -20,6 +20,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // 折叠的分组菜单 id 集合（未记录 = 展开；点击分组标题切换）
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  // 侧边栏整体折叠（仅显示菜单图标）：localStorage 持久化
+  // 惰性初始化读取，避免在 effect 中同步 setState（SSR 期间默认展开）
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
+    () => typeof window !== "undefined" && localStorage.getItem("oak-sidebar-collapsed") === "1"
+  );
+
+  const toggleSidebar = () =>
+    setSidebarCollapsed((c) => {
+      localStorage.setItem("oak-sidebar-collapsed", c ? "0" : "1");
+      return !c;
+    });
 
   useEffect(() => {
     api("/api/auth/me").catch(() => {
@@ -48,6 +59,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           if (item.type === "dir") {
             // 目录：仅含按钮（权限点）时跳过，避免出现空分组标题
             if (!(item.children ?? []).some((c) => c.type !== "button")) return null;
+            if (sidebarCollapsed) {
+              // 图标模式下平铺展示子菜单图标（不再显示分组标题与折叠箭头）
+              return <div key={item.id}>{renderNav(item.children ?? [], onNavigate, 0)}</div>;
+            }
             const isCollapsed = collapsed.has(item.id);
             return (
               <div key={item.id} className={depth === 0 ? "pt-3" : ""}>
@@ -67,6 +82,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           }
           const active =
             pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path + "/"));
+          if (sidebarCollapsed) {
+            return (
+              <Link
+                key={item.id}
+                href={item.path}
+                onClick={onNavigate}
+                title={item.name}
+                aria-label={item.name}
+                className="flex items-center justify-center px-0 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+                style={
+                  active
+                    ? {
+                        background: "var(--animal-primary-color-bg)",
+                        color: "var(--animal-primary-color)",
+                      }
+                    : { color: "var(--animal-text-color-secondary)" }
+                }
+              >
+                <Icon name={(item.icon || "icon-miles") as IconName} size={20} />
+              </Link>
+            );
+          }
           return (
             <Link
               key={item.id}
@@ -135,16 +172,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex">
         {/* 桌面侧边栏 */}
         <aside
-          className="hidden md:flex flex-col w-60 fixed inset-y-0 border-r"
+          className="hidden md:flex flex-col fixed inset-y-0 border-r transition-all duration-300"
           style={{
             background: "var(--animal-bg-color)",
             borderColor: "var(--animal-border-color-light)",
+            width: sidebarCollapsed ? 76 : 240,
           }}
         >
-          <div className="px-5 pt-6 pb-4 text-center">
-            <Title size="small" color="app-teal">
-              Oak
-            </Title>
+          <div className={`flex items-center justify-between pt-6 pb-4 ${sidebarCollapsed ? "px-3" : "px-5"}`}>
+            {sidebarCollapsed ? (
+              <span className="text-xl">🌳</span>
+            ) : (
+              <Title size="small" color="app-teal">
+                Oak
+              </Title>
+            )}
+            <button
+              type="button"
+              className="p-1.5 rounded-lg border-0 bg-transparent cursor-pointer hover:opacity-80"
+              style={{ color: "var(--animal-text-color-secondary)" }}
+              onClick={toggleSidebar}
+              aria-label={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+              title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+            </button>
           </div>
           <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">{renderNav(menus)}</nav>
           <div className="relative px-3 pb-5 pt-2">
@@ -187,7 +239,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
             <button
               type="button"
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border-0 cursor-pointer transition-all duration-300 active:scale-95 hover:opacity-90"
+              className={`flex items-center gap-2.5 rounded-2xl border-0 cursor-pointer transition-all duration-300 active:scale-95 hover:opacity-90 ${
+                sidebarCollapsed ? "mx-auto px-2 py-2" : "w-full px-3 py-2.5"
+              }`}
               style={{ background: "transparent", color: "var(--animal-text-color-secondary)" }}
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               aria-expanded={userMenuOpen}
@@ -203,17 +257,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <GamepadDirectional size={18} />
               </span>
-              <span className="flex-1 min-w-0 text-left text-sm font-semibold truncate">
-                {user?.displayName || user?.username || "我"}
-              </span>
-              <span className="shrink-0">
-                {userMenuOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-              </span>
+              {!sidebarCollapsed && (
+                <span className="flex-1 min-w-0 text-left text-sm font-semibold truncate">
+                  {user?.displayName || user?.username || "我"}
+                </span>
+              )}
+              {!sidebarCollapsed && (
+                <span className="shrink-0">
+                  {userMenuOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                </span>
+              )}
             </button>
           </div>
         </aside>
 
-        <div className="flex-1 md:ml-60 flex flex-col min-h-screen">
+        <div
+          className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
+            sidebarCollapsed ? "md:ml-[76px]" : "md:ml-[240px]"
+          }`}
+        >
           {/* 顶部栏 */}
           <header
             className="sticky top-0 z-40 border-b"
