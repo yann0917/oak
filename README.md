@@ -44,6 +44,99 @@ DIKW（Data-Information-Knowledge-Wisdom）是信息管理学的基石模型，�
 - **权限与系统管理**：多账号登录（仅 admin 在后台添加用户，不开放注册）+ RBAC 角色权限（Casbin，策略直接读业务表）；侧边栏按角色动态渲染菜单树（支持目录/菜单/按钮三级）；**接口权限自动扫描**：构建时扫描 `src/app/api` 全部路由生成权限点（`api:*`，构建脚本自动重新生成），角色分配时在权限树中勾选菜单/目录/接口按钮即生效（勾父级自动展开子孙）；超管通过 `users.is_admin` 短路放行；所有业务表按 `user_id` 归属隔离；middleware 拦截未登录访问
 - **政策动态**：招生入学、升学政策等摘要与原文链接
 
+## 功能截图
+
+### 概览与快记
+
+<table>
+  <tr>
+    <td align="center"><img src="images/dashboard.png" alt="概览仪表盘" width="360" /></td>
+    <td align="center"><img src="images/children.png" alt="成员管理" width="360" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/moments.png" alt="时光相册" width="360" /></td>
+    <td align="center"></td>
+  </tr>
+</table>
+
+### 教育与学习
+
+<table>
+  <tr>
+    <td align="center"><img src="images/education.png" alt="教育经历" width="360" /></td>
+    <td align="center"><img src="images/education-teachers.png" alt="老师" width="360" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/timetable.png" alt="课程表" width="360" /></td>
+    <td align="center"><img src="images/learning.png" alt="学习情况" width="360" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/learning-activities.png" alt="兴趣班/特长" width="360" /></td>
+    <td align="center"><img src="images/garden.png" alt="学习园地" width="360" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/notes.png" alt="错题本/笔记" width="360" /></td>
+    <td align="center"></td>
+  </tr>
+</table>
+
+### 成长与健康
+
+<table>
+  <tr>
+    <td align="center"><img src="images/growth.png" alt="成长记录" width="360" /></td>
+    <td align="center"><img src="images/growth-assessment.png" alt="儿童生长标准测评" width="360" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/health.png" alt="健康档案" width="360" /></td>
+    <td align="center"></td>
+  </tr>
+</table>
+
+### 家庭事务
+
+<table>
+  <tr>
+    <td align="center"><img src="images/bills.png" alt="账单" width="360" /></td>
+    <td align="center"><img src="images/reminders.png" alt="提醒中心" width="360" /></td>
+  </tr>
+</table>
+
+### AI 助手与记忆检索
+
+<table>
+  <tr>
+    <td align="center"><img src="images/ai-assistant.png" alt="AI 助手（悬浮对话）" width="360" /></td>
+    <td align="center"><img src="images/settings.png" alt="设置（AI 大模型配置）" width="360" /></td>
+  </tr>
+</table>
+
+### 实用工具
+
+<table>
+  <tr>
+    <td align="center"><img src="images/todo.png" alt="待办" width="360" /></td>
+    <td align="center"><img src="images/timer.png" alt="番茄钟" width="360" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/whiteboard.png" alt="白板" width="360" /></td>
+    <td align="center"></td>
+  </tr>
+</table>
+
+### 权限与系统管理
+
+<table>
+  <tr>
+    <td align="center"><img src="images/system-users.png" alt="用户管理" width="360" /></td>
+    <td align="center"><img src="images/system-roles.png" alt="角色管理" width="360" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/system-menus.png" alt="菜单管理" width="360" /></td>
+    <td align="center"></td>
+  </tr>
+</table>
+
 ## 本地运行
 
 ```bash
@@ -62,7 +155,7 @@ npm start        # 访问 http://localhost:3000
 
 GitHub Actions 只负责构建（`.github/workflows/build.yml`）：推送 `main` 分支后自动产出 **standalone 独立部署包**（自带按需裁剪的 node_modules，压缩包约 65MB），在 Actions 页面对应 run 的 Artifacts 里下载 `oak-dist`（或 `gh run download -n oak-dist`），scp 到服务器解压运行。**服务器上不执行 npm install。**
 
-> **服务器系统要求：Ubuntu 22.04+ / Debian 12+**。better-sqlite3 的预编译模块需要 glibc ≥ 2.34（Ubuntu 20.04 的 2.31、CentOS 7 的 2.17 都不满足），Node 22 官方包也要求 glibc ≥ 2.28。服务器另需 Node.js 20.9+ 与 pm2。
+> **服务器系统要求：Ubuntu 22.04+ / Debian 12+**。better-sqlite3 的预编译模块需要 glibc ≥ 2.34（Ubuntu 20.04 的 2.31、CentOS 7 的 2.17 都不满足），Node 22 官方包也要求 glibc ≥ 2.28。服务器另需 Node.js 20.9+。
 
 ### 手动部署步骤
 
@@ -73,14 +166,15 @@ GitHub Actions 只负责构建（`.github/workflows/build.yml`）：推送 `main
 sudo mkdir -p /opt/oak && cd /opt/oak
 # 把 oak-dist.tar.gz 传到 /opt/oak 后：
 tar -xzf oak-dist.tar.gz     # 解压出 server.js、node_modules、.next、public
-pm2 start node --name oak -- server.js
+node server.js               # 前台运行；后台运行：nohup node server.js > oak.log 2>&1 &
 
 # 以后每次更新：新的 oak-dist.tar.gz 传到 /opt/oak 后
-cd /opt/oak && tar -xzf oak-dist.tar.gz && pm2 restart oak
+cd /opt/oak && tar -xzf oak-dist.tar.gz                    # 覆盖程序文件
+pkill -f "node server.js"; nohup node server.js > oak.log 2>&1 &   # 重启
 ```
 
-- `data/`、`uploads/` 由应用自动创建；改端口用 `PORT=8080 pm2 start node --name oak -- server.js`
-- 回滚：每次的 `oak-dist.tar.gz` 就是版本备份，解压旧包 + `pm2 restart oak` 即可
+- `data/`、`uploads/` 由应用自动创建；改端口用 `PORT=8080 node server.js`
+- 回滚：每次的 `oak-dist.tar.gz` 就是版本备份，解压旧包 + 重启进程即可
 - 公网部署建议 Nginx 反向代理并启用 HTTPS（系统含登录认证，务必走 HTTPS）
 - 数据库结构与默认账号在应用启动时自动幂等迁移，更新不会影响已有数据
 

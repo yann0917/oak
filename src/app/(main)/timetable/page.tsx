@@ -9,21 +9,6 @@ import { useChildren } from "@/lib/childContext";
 
 const DAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
-/** 今天（北京时间）对应的星期，用于课程表高亮当前列 */
-function todayDayKey() {
-  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Shanghai", weekday: "short" }).format(new Date());
-  const map: Record<string, string> = {
-    Sun: "周日",
-    Mon: "周一",
-    Tue: "周二",
-    Wed: "周三",
-    Thu: "周四",
-    Fri: "周五",
-    Sat: "周六",
-  };
-  return map[weekday] ?? "";
-}
-
 const emptySlot = {
   day: "周一",
   period: "",
@@ -36,7 +21,6 @@ const emptySlot = {
 export default function TimetablePage() {
   const { currentChild } = useChildren();
   const router = useRouter();
-  const todayDay = useMemo(() => todayDayKey(), []);
   const [slots, setSlots] = useState<any[]>([]);
   const [periodOrders, setPeriodOrders] = useState<Record<string, string[]>>({});
   const [semesters, setSemesters] = useState<any[]>([]);
@@ -311,7 +295,7 @@ export default function TimetablePage() {
                         background: "var(--animal-bg-color-secondary)",
                         cursor: "grab",
                         outline:
-                          dragOverIdx === rowIdx && dragFrom.current != null
+                          dragOverIdx === rowIdx
                             ? "2px dashed var(--animal-primary-color)"
                             : "none",
                       }}
@@ -320,12 +304,10 @@ export default function TimetablePage() {
                     </td>
                     {days.map((d) => {
                       const cell = cellSlots(d, p);
-                      const isToday = d === todayDay;
                       return (
                         <td
                           key={d}
                           className="align-top"
-                          style={isToday ? { background: "#D8EAFB", borderRadius: 12 } : undefined}
                         >
                           {cell.length === 0 ? (
                             <button
