@@ -16,7 +16,7 @@ DIKW（Data-Information-Knowledge-Wisdom）是信息管理学的基石模型，�
 | --- | --- | --- |
 | **数据** Data | 零碎、无序的原始发生 | 「一句话快记」：写一句、传张图，先忠实入库，不做任何负担 |
 | **信息** Information | 有标签、有前因后果的记录 | AI 识图归类：自动拆解为健康/账单/成长/时光/卡证/提醒/政策等结构化记录 |
-| **知识** Knowledge | 连续记录背后的规律与 SOP | 周期复盘与家庭洞察（路线图中）：如"夏季空调费是大头"，沉淀为家庭经验 |
+| **知识** Knowledge | 连续记录背后的规律与 SOP | 周期复盘与家庭洞察：如"夏季空调费是大头"，沉淀为家庭经验；AI 助手每次对话自动检索这些沉淀（RAG 记忆检索） |
 | **智慧** Wisdom | 内化为直觉与决策力 | 主动决策副驾驶（愿景中）：结合政策与成长节点，在你需要之前给出行动建议 |
 
 对应到系统里：`quick_notes`（原始流水）是数据层，各业务模块（账单、卡证档案、健康档案……）是信息层；当数据积累到一定量，系统将帮你把信息升华为知识和智慧。
@@ -37,6 +37,8 @@ DIKW（Data-Information-Knowledge-Wisdom）是信息管理学的基石模型，�
 - **账单**：按学期/日期记录学费、餐费、医疗、购物、水电等收支（方向+类型+状态），凭证照片
 - **卡证档案**：集中保管证件、证明、病历、检测单/检测报告、协议证书等原件照片与关键信息（证号、签发/到期日期），到期自动高亮
 - **一句话快记**：首页快记入口，一句话 + 可附照片，由大模型识图归类并写入健康/账单/成长/时光/卡证/提醒/待办等模块（大模型可选，设置页配置 OpenAI 兼容接口）；未配置或识别失败时保留为原始流水（DIKW 数据层）
+- **AI 助手（悬浮对话）**：右下角悬浮入口的全家数据管家，AI SDK v7 流式对话 + 18 个只读查询工具（成员/教师/成长/健康/账单/学习/时光/提醒/待办/笔记/学习园地/卡证/政策/快记/洞察 + 跨模块搜索 + 记忆检索），回答前强制查库不编造；多模型配置（设置页：DeepSeek / OpenAI / Kimi / 通义 / 自定义，优先 Responses API 接口形态），可选联网搜索（AnySearch 或 DeepSeek 原生 web_search）；会话与消息入库可回溯
+- **记忆检索（RAG）**：AI 助手自动把快记流水与 OCR 原文（接种证/身份证全文）、时光、笔记、卡证、政策、健康、账单、教师、家庭复盘与历史对话等文本切块向量化（复用已配置的云端 embedding：OpenAI text-embedding-3-small / 通义 text-embedding-v4；DeepSeek/Kimi 不支持 embeddings），向量 + BM25 中文双通道 RRF 融合，可选 qwen3-rerank 精排；每轮对话自动注入最相关记忆片段，可用 searchKnowledge 工具深挖；快记/时光等附件照片经视觉模型生成一句话描述后同样可检索；索引按内容哈希增量同步、后台维护，设置页可配置与重建（`data/oak.db` 内，随库备份）
 - **家庭脉搏（Knowledge 提炼）**：周/月复盘看板，后台定时把近 7 天 / 近 30 天的流水、账单、健康、成长、学习等记录聚合成时间线交给 AI，提炼因果关系与重复模式，生成 2-4 条家庭经验（type + insight + action_sop），支持一键保存至家庭指南；首页「橡树长出了新叶」卡片展示，也可手动「立即复盘」
 - **提醒中心**：疫苗、视力检查、缴费截止、家长会等定时提醒；一次性/每天/每周/每月/Cron 五种周期 + 提前 N 天预告；WxPusher/Server酱/邮件(Resend)/站内通知多渠道推送，静默期顺延、节流、失败重试与兜底渠道，发送日志可查
 - **权限与系统管理**：多账号登录（仅 admin 在后台添加用户，不开放注册）+ RBAC 角色权限（Casbin，策略直接读业务表）；侧边栏按角色动态渲染菜单树（支持目录/菜单/按钮三级）；**接口权限自动扫描**：构建时扫描 `src/app/api` 全部路由生成权限点（`api:*`，构建脚本自动重新生成），角色分配时在权限树中勾选菜单/目录/接口按钮即生效（勾父级自动展开子孙）；超管通过 `users.is_admin` 短路放行；所有业务表按 `user_id` 归属隔离；middleware 拦截未登录访问
@@ -88,7 +90,7 @@ cd /opt/oak && tar -xzf oak-dist.tar.gz && pm2 restart oak
 
 所有数据都在两个位置，复制即可备份：
 
-- 本地开发：`data/`（SQLite 数据库）+ `uploads/`（上传的照片与附件）
+- 本地开发：`data/`（SQLite 数据库，含业务数据、AI 助手会话与 RAG 记忆索引）+ `uploads/`（上传的照片与附件）
 - 服务器部署：`/opt/oak/data/` + `/opt/oak/uploads/`
 
 > ⚠️ 数据库开启了 WAL 模式，最近的写入会暂存在 `oak.db-wal` 中。备份时建议把 `oak.db`、`oak.db-wal`、`oak.db-shm` 三个文件一起复制（或先停服务再只复制 `oak.db`），否则可能丢失最近提交。
@@ -101,7 +103,7 @@ cd /opt/oak && tar -xzf oak-dist.tar.gz && pm2 restart oak
 
 ## 技术栈
 
-Next.js 16 (App Router + Turbopack) + React 19 + TypeScript + Tailwind CSS + Drizzle ORM + better-sqlite3 + Recharts
+Next.js 16 (App Router + Turbopack) + React 19 + TypeScript + Tailwind CSS + Drizzle ORM + better-sqlite3 + AI SDK v7 (@ai-sdk/openai) + Recharts
 
 ## License
 
