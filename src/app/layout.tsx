@@ -7,6 +7,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Oak - 我记",
   description: "记录与我有关的一切——孩子、父母、朋友，随时随手记",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
