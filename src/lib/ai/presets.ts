@@ -63,3 +63,23 @@ export function presetByKey(key: string): AiPreset | undefined {
 }
 
 export const AI_PROVIDER_KEYS = AI_PRESETS.map((p) => p.key);
+
+// ===== RAG 记忆检索：embedding 预设（纯常量，供服务端与设置页共用） =====
+
+/** 各服务商预设的 embedding 默认模型（为空 = 不支持或必须手动填写） */
+export const EMBEDDING_DEFAULTS: Record<string, string> = {
+  openai: "text-embedding-3-small",
+  qwen: "text-embedding-v4",
+};
+
+/** 各服务商是否支持 OpenAI 兼容 /embeddings 接口 */
+export const EMBEDDING_SUPPORTED: Record<string, boolean> = {
+  deepseek: false,
+  moonshot: false,
+  openai: true,
+  qwen: true,
+  custom: true, // 任意兼容 /embeddings 的接口，模型名必须手动填
+};
+
+/** RAG 重排默认模型（qwen3-rerank：OpenAI 兼容 /compatible-mode/v1/reranks，100+ 语言含中文） */
+export const RERANK_DEFAULT_MODEL = "qwen3-rerank";

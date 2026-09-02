@@ -11,6 +11,7 @@ import { chatMessages, chatSessions, children } from "@/db/schema";
 import { getAgentSetup } from "./provider";
 import { buildSystemPrompt } from "./systemPrompt";
 import { buildAgentTools } from "./tools";
+import { ensureSyncLazy, formatRagContext, retrieveRag } from "@/lib/rag/store";
 
 const HISTORY_LIMIT = 40;
 const MAX_STEPS = 8;
@@ -102,9 +103,19 @@ export async function streamAgentChat(opts: {
     .where(eq(children.userId, userId))
     .all();
 
+  // RAG 记忆检索：索引落后时后台同步（不阻塞），检索失败仅跳过注入
+  ensureSyncLazy(userId);
+  let ragContext = "";
+  try {
+    const hits = await retrieveRag(userId, userText, { limit: 8 });
+    ragContext = formatRagContext(hits);
+  } catch (err) {
+    console.error("[ai-agent] RAG 检索失败，跳过注入:", err);
+  }
+
   const result = streamText({
     model,
-    instructions: buildSystemPrompt(userName, familyChildren),
+    instructions: buildSystemPrompt(userName, familyChildren) + ragContext,
     messages: [...history, { role: "user", content: userText }],
     tools,
     stopWhen: isStepCount(MAX_STEPS),

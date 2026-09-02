@@ -90,6 +90,16 @@ export const API_PERMS: ApiPermDef[] = [
   },
   {
     "resource": "ai-settings",
+    "perms": "api:ai-settings:rag-get",
+    "label": "AI 设置·rag-get"
+  },
+  {
+    "resource": "ai-settings",
+    "perms": "api:ai-settings:rag-post",
+    "label": "AI 设置·rag-post"
+  },
+  {
+    "resource": "ai-settings",
     "perms": "api:ai-settings:test-post",
     "label": "AI 设置·测试推送"
   },

@@ -739,6 +739,55 @@ for (const table of ["timetable_slots", "learning_records", "bills"]) {
   sqlite.exec(`ALTER TABLE ${table} DROP COLUMN term`);
 }
 
+// AI 助手 RAG（记忆检索）：向量块 + FTS5 全文表 + 同步状态
+// rag_fts 为普通 FTS5（unicode61），中文 2-gram 预处理在应用层生成 text_bi 列；
+// 与 rag_chunks 的增删改由 store 层在同一事务内同步维护。
+sqlite.exec(`
+CREATE TABLE IF NOT EXISTS rag_chunks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  child_id INTEGER,
+  doc_key TEXT NOT NULL,
+  seq INTEGER NOT NULL DEFAULT 0,
+  content_hash TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  metadata TEXT NOT NULL DEFAULT '{}',
+  embedding BLOB,
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rag_chunks_doc_key ON rag_chunks(user_id, doc_key, seq);
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_user ON rag_chunks(user_id);
+CREATE VIRTUAL TABLE IF NOT EXISTS rag_fts USING fts5(text, text_bi, tokenize='unicode61');
+CREATE TABLE IF NOT EXISTS rag_meta (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'unconfigured',
+  chunk_count INTEGER NOT NULL DEFAULT 0,
+  embedding_dim INTEGER NOT NULL DEFAULT 0,
+  last_sync_at TEXT NOT NULL DEFAULT '',
+  last_error TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rag_meta_user ON rag_meta(user_id);
+CREATE TABLE IF NOT EXISTS rag_image_captions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  path TEXT NOT NULL,
+  caption TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  error TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rag_image_captions_path ON rag_image_captions(user_id, path);
+`);
+// 记忆检索配置：embedding 服务商（指向 ai_providers.id）与模型名覆盖（空 = 按服务商预设默认）
+ensureColumn("ai_settings", "embedding_provider_id", "INTEGER");
+ensureColumn("ai_settings", "embedding_model", "TEXT NOT NULL DEFAULT ''");
+// 记忆检索重排：开关 + 模型名（qwen3-rerank 等 OpenAI 兼容 /reranks 端点）
+ensureColumn("ai_settings", "rerank_enabled", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("ai_settings", "rerank_model", "TEXT NOT NULL DEFAULT ''");
+
 // 种子账号：首次运行时创建默认管理员 admin/admin123
 const userCount = (sqlite.prepare("SELECT COUNT(*) as c FROM users").get() as any).c;
 if (userCount === 0) {

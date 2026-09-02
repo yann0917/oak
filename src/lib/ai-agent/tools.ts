@@ -3,10 +3,12 @@ import { z } from "zod";
 import { and, desc, eq, gte, like, lte, or } from "drizzle-orm";
 import { db } from "@/db";
 import { anysearchExtract, anysearchSearch } from "./anysearch";
+import { retrieveRag } from "@/lib/rag/store";
 import {
   bills,
   certArchives,
   children,
+  childTeachers,
   familyInsights,
   gardenMastery,
   gardenRecords,
@@ -19,6 +21,8 @@ import {
   quickNotes,
   reminders,
   reviewCards,
+  schools,
+  teachers,
   todos,
 } from "@/db/schema";
 
@@ -124,6 +128,50 @@ export function buildAgentTools(uid: number, opts: { searchApiKey?: string } = {
           .from(children)
           .where(byUser(children))
           .orderBy(desc(children.id))
+          .limit(normLimit(limit))
+          .all();
+        return { rows };
+      },
+      records
+    ),
+
+    // 1.5 教师档案
+    queryTeachers: define(
+      "queryTeachers",
+      "查询教师信息（姓名、任教科目、电话、所在学校、师生关联阶段），可按孩子过滤、按姓名/科目关键词查",
+      z.object({
+        ...common,
+        keyword: z.string().optional().describe("姓名/科目关键字"),
+      }),
+      async ({ childId, keyword, limit }) => {
+        const rows = db
+          .select({
+            id: teachers.id,
+            name: teachers.name,
+            subject: teachers.subject,
+            phone: teachers.phone,
+            notes: teachers.notes,
+            schoolName: schools.name,
+            stage: childTeachers.stage,
+            childId: childTeachers.childId,
+          })
+          .from(teachers)
+          .leftJoin(
+            childTeachers,
+            and(eq(childTeachers.teacherId, teachers.id), eq(childTeachers.userId, uid))
+          )
+          .leftJoin(
+            schools,
+            and(eq(schools.id, teachers.schoolId), eq(schools.userId, uid))
+          )
+          .where(
+            and(
+              eq(teachers.userId, uid),
+              childId ? eq(childTeachers.childId, Number(childId)) : undefined,
+              keyword ? or(like(teachers.name, `%${keyword}%`), like(teachers.subject, `%${keyword}%`)) : undefined
+            )
+          )
+          .orderBy(desc(teachers.id))
           .limit(normLimit(limit))
           .all();
         return { rows };
@@ -663,8 +711,42 @@ export function buildAgentTools(uid: number, opts: { searchApiKey?: string } = {
         q("cert_archives", "卡证", db.select({ id: certArchives.id, title: certArchives.title, number: certArchives.number }).from(certArchives).where(and(eq(certArchives.userId, uid), or(like(certArchives.title, kw), like(certArchives.number, kw)))).limit(cap).all());
         q("policy_notes", "政策", db.select({ id: policyNotes.id, title: policyNotes.title, category: policyNotes.category }).from(policyNotes).where(and(eq(policyNotes.userId, uid), like(policyNotes.title, kw))).limit(cap).all());
         q("children", "孩子", db.select({ id: children.id, name: children.name, nickname: children.nickname }).from(children).where(and(eq(children.userId, uid), or(like(children.name, kw), like(children.nickname, kw)))).limit(cap).all());
+        q("teachers", "教师", db.select({ id: teachers.id, name: teachers.name, subject: teachers.subject }).from(teachers).where(and(eq(teachers.userId, uid), or(like(teachers.name, kw), like(teachers.subject, kw)))).limit(cap).all());
+        q("schools", "学校", db.select({ id: schools.id, name: schools.name, type: schools.type }).from(schools).where(and(eq(schools.userId, uid), or(like(schools.name, kw), like(schools.intro, kw)))).limit(cap).all());
 
         return { keyword, results };
+      },
+      records
+    ),
+
+    // 17. 记忆检索（RAG）：语义+关键词混合，搜"我记得记过…"这类自由文本
+    searchKnowledge: define(
+      "searchKnowledge",
+      "在家庭记忆中做语义检索（向量+关键词混合）：快记/时光/笔记/卡证/政策/健康/学习/账单/历史对话等。当自动提供的「相关记忆片段」不够或用户问更早/更细节的记忆时调用。",
+      z.object({
+        query: z.string().describe("要查找的记忆内容描述（一句话即可）"),
+        childId: z.string().optional().describe("孩子 id（字符串），只搜某个孩子；不传查全家"),
+        limit: z.number().int().min(1).max(10).optional().describe("返回条数，默认 6"),
+      }),
+      async ({ query, childId, limit }) => {
+        try {
+          const hits = await retrieveRag(uid, query, {
+            limit: limit ?? 6,
+            childId: childId ? Number(childId) : undefined,
+          });
+          if (!hits.length) {
+            return { hits: [], note: "记忆检索未命中或未启用：请确认「设置 → AI 大模型」已配置 embedding 服务商且索引已完成" };
+          }
+          return {
+            hits: hits.map((h) => ({
+              来源: h.module,
+              日期: h.date || "",
+              内容: h.content,
+            })),
+          };
+        } catch (err) {
+          return { hits: [], error: err instanceof Error ? err.message : String(err) };
+        }
       },
       records
     ),

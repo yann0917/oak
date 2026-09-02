@@ -3,6 +3,7 @@ import {
   text,
   integer,
   real,
+  blob,
   index,
   uniqueIndex,
   primaryKey,
@@ -492,9 +493,68 @@ export const aiSettings = sqliteTable(
     enabled: integer("enabled").notNull().default(0),
     searchApiKey: text("search_api_key").notNull().default(""), // AnySearch 联网搜索 API Key（可选）
     activeProviderId: integer("active_provider_id"), // 当前生效的 ai_providers.id
+    embeddingProviderId: integer("embedding_provider_id"), // RAG 记忆检索：embedding 用的 ai_providers.id（NULL = 未配置）
+    embeddingModel: text("embedding_model").notNull().default(""), // 覆盖 embedding 模型名，空 = 按服务商预设默认（openai→text-embedding-3-small / qwen→text-embedding-v4）
+    rerankEnabled: integer("rerank_enabled").notNull().default(0), // RAG 检索重排（精排 top-k）
+    rerankModel: text("rerank_model").notNull().default(""), // 重排模型名，空 = qwen3-rerank（需服务商支持 /reranks，如通义百炼）
     updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (t) => [uniqueIndex("idx_ai_settings_user").on(t.userId)]
+);
+
+// ===== AI 助手 RAG（记忆检索）：向量块 + FTS5 全文 + 同步状态 =====
+
+// 记忆切块：每块一行（原文 + 归一化 embedding BLOB）；FTS5 全文表在 store 层同事务维护
+export const ragChunks = sqliteTable(
+  "rag_chunks",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1), // 归属用户（检索只扫本人）
+    childId: integer("child_id"), // 归属成员，可空（家庭共用）
+    docKey: text("doc_key").notNull(), // 来源标识，如 quick_notes:12
+    seq: integer("seq").notNull().default(0), // 该来源第几块
+    contentHash: text("content_hash").notNull().default(""), // 增量同步：内容哈希，未变不重嵌入
+    content: text("content").notNull().default(""), // 原文（注入/回显用）
+    metadata: text("metadata").notNull().default("{}"), // JSON：{module,title,date}
+    embedding: blob("embedding"), // 归一化 Float32Array 二进制
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [
+    uniqueIndex("idx_rag_chunks_doc_key").on(t.userId, t.docKey, t.seq),
+    index("idx_rag_chunks_user").on(t.userId),
+  ]
+);
+
+// 每用户一行的索引同步状态（设置页展示、错误不阻塞对话）
+export const ragMeta = sqliteTable(
+  "rag_meta",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1),
+    status: text("status").notNull().default("unconfigured"), // unconfigured|syncing|ok|error
+    chunkCount: integer("chunk_count").notNull().default(0),
+    embeddingDim: integer("embedding_dim").notNull().default(0), // 向量维度（换模型维度变化时全量重建）
+    lastSyncAt: text("last_sync_at").notNull().default(""),
+    lastError: text("last_error").notNull().default(""),
+    updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [uniqueIndex("idx_rag_meta_user").on(t.userId)]
+);
+
+// 照片视觉描述缓存：各模块附件图片经视觉模型生成的一句话描述，供 RAG 检索图片内容
+export const ragImageCaptions = sqliteTable(
+  "rag_image_captions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1),
+    path: text("path").notNull(), // /uploads/*.jpg
+    caption: text("caption").notNull().default(""),
+    status: text("status").notNull().default("pending"), // pending|done|failed
+    error: text("error").notNull().default(""),
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [uniqueIndex("idx_rag_image_captions_path").on(t.userId, t.path)]
 );
 
 // 模型配置（每用户每个服务商一条）：锁定的服务商列表 + 右侧随时可改的 base_url/model/api_key

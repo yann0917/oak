@@ -5,7 +5,7 @@ import { Button, Card, Input, Select, Switch } from "animal-island-ui";
 import { Notification } from "@/lib/toast";
 import { api } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { AI_PRESETS, presetByKey } from "@/lib/ai/presets";
+import { AI_PRESETS, EMBEDDING_SUPPORTED, presetByKey } from "@/lib/ai/presets";
 
 interface ProviderRow {
   id: number;
@@ -16,6 +16,19 @@ interface ProviderRow {
   model: string;
   apiMode: string;
   updatedAt?: string;
+}
+
+interface RagState {
+  configured: boolean;
+  status: string;
+  chunkCount: number;
+  lastSyncAt: string;
+  lastError: string;
+  embeddingProviderId: number | null;
+  embeddingModel: string;
+  rerankEnabled: boolean;
+  rerankModel: string;
+  embeddingHint: string;
 }
 
 const API_MODE_OPTIONS = [
@@ -45,6 +58,14 @@ export default function AiSettingsCard() {
   const [confirmDelete, setConfirmDelete] = useState<ProviderRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // RAG 记忆检索
+  const [rag, setRag] = useState<RagState | null>(null);
+  const [embeddingProviderId, setEmbeddingProviderId] = useState<number | null>(null);
+  const [embeddingModel, setEmbeddingModel] = useState("");
+  const [rerankEnabled, setRerankEnabled] = useState(false);
+  const [rerankModel, setRerankModel] = useState("");
+  const [savingRag, setSavingRag] = useState(false);
+
   const load = async () => {
     try {
       const res = await api<{
@@ -72,6 +93,20 @@ export default function AiSettingsCard() {
       /* 保存操作会给出提示 */
     } finally {
       setLoading(false);
+    }
+    loadRag();
+  };
+
+  const loadRag = async () => {
+    try {
+      const r = await api<RagState>("/api/ai-settings/rag");
+      setRag(r);
+      setEmbeddingProviderId(r.embeddingProviderId);
+      setEmbeddingModel(r.embeddingModel);
+      setRerankEnabled(r.rerankEnabled);
+      setRerankModel(r.rerankModel);
+    } catch {
+      /* 状态展示失败不打扰用户 */
     }
   };
 
@@ -174,6 +209,24 @@ export default function AiSettingsCard() {
       Notification.error(err.message || "保存失败");
     } finally {
       setSavingGlobal(false);
+    }
+  };
+
+  const saveRag = async () => {
+    setSavingRag(true);
+    try {
+      await api("/api/ai-settings/rag", {
+        method: "POST",
+        body: JSON.stringify({ embeddingProviderId, embeddingModel, rerankEnabled, rerankModel }),
+      });
+      Notification.success(
+        embeddingProviderId == null ? "记忆检索已关闭" : "记忆检索配置已保存，索引在后台重建中"
+      );
+      setTimeout(loadRag, 2000);
+    } catch (err: any) {
+      Notification.error(err.message || "保存失败");
+    } finally {
+      setSavingRag(false);
     }
   };
 
@@ -360,6 +413,85 @@ export default function AiSettingsCard() {
               <Button type="primary" loading={savingGlobal} onClick={saveGlobal}>
                 保存基本设置
               </Button>
+            </div>
+          </div>
+
+          {/* RAG 记忆检索 */}
+          <div className="mt-5 border-t pt-4 space-y-3" style={{ borderColor: "var(--animal-border-color-light)" }}>
+            <div className="text-sm font-bold">记忆检索（RAG）</div>
+            <p className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+              用于回答「我之前记过/我们聊过…」类问题：选择支持 embeddings 的服务商作为向量来源（DeepSeek/Kimi 不支持），
+              对话时自动检索相关记忆片段注入上下文，并可在对话中调用 searchKnowledge 深挖
+            </p>
+            <div className="max-w-xl space-y-3">
+              <div>
+                <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+                  Embedding 服务商（基于上方已保存的模型配置）
+                </label>
+                <Select
+                  value={embeddingProviderId != null ? String(embeddingProviderId) : "__none"}
+                  options={[
+                    { key: "__none", label: "未配置（不启用记忆检索）" },
+                    ...providers.map((p) => ({
+                      key: String(p.id),
+                      label: `${p.name || presetByKey(p.provider)?.label || p.provider} · ${p.model || "未填模型"}${
+                        EMBEDDING_SUPPORTED[p.provider] === false ? "（无 embeddings）" : ""
+                      }`,
+                    })),
+                  ]}
+                  onChange={(k) => {
+                    const id = k && k !== "__none" ? Number(k) : null;
+                    setEmbeddingProviderId(id);
+                    if (id != null && rag?.embeddingProviderId !== id) setEmbeddingModel("");
+                  }}
+                />
+                {providers.length === 0 && (
+                  <p className="text-xs mt-1" style={{ color: "var(--animal-text-color-secondary)" }}>
+                    还没有任何模型配置：先在上方保存一个支持 embeddings 的服务商（OpenAI / 通义 / 自定义）即可选择
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+                  Embedding 模型名（可空 = 预设默认：OpenAI text-embedding-3-small / 通义 text-embedding-v4）
+                </label>
+                <Input
+                  value={embeddingModel}
+                  onChange={(e) => setEmbeddingModel(e.target.value)}
+                  placeholder="留空用默认；自定义服务商必须填写"
+                  allowClear
+                />
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Switch size="small" checked={rerankEnabled} onChange={setRerankEnabled} checkedChildren="重排" unCheckedChildren="关" />
+                <span className="text-sm">精排（rerank）：把检索结果再重排一次，提升注入精度</span>
+              </div>
+              <div className="max-w-xl">
+                <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+                  重排模型名（可空 = qwen3-rerank；仅当服务商支持 /reranks 端点时生效，如通义）
+                </label>
+                <Input
+                  value={rerankModel}
+                  onChange={(e) => setRerankModel(e.target.value)}
+                  placeholder="qwen3-rerank"
+                  allowClear
+                />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button type={embeddingProviderId != null ? "primary" : "default"} loading={savingRag} onClick={saveRag}>
+                  {embeddingProviderId != null ? "保存并重建索引" : "关闭记忆检索"}
+                </Button>
+                {rag && (
+                  <span className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+                    {!rag.configured && rag.embeddingHint}
+                    {rag.configured && rag.status === "syncing" && "索引重建中…"}
+                    {rag.configured &&
+                      rag.status === "ok" &&
+                      `已索引 ${rag.chunkCount} 条记忆${rag.lastSyncAt ? ` · 上次同步 ${new Date(rag.lastSyncAt).toLocaleString("zh-CN")}` : ""}`}
+                    {rag.configured && rag.status === "error" && `上次索引失败：${rag.lastError}`}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </>
