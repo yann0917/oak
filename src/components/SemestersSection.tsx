@@ -1,25 +1,23 @@
 "use client";
 
 import { STAGES } from "@/lib/api";
-import { useChildren } from "@/lib/childContext";
+import type { Child } from "@/lib/childContext";
 import { Chip, CrudSection, ItemActions } from "@/components/CrudSection";
 
-export default function SemestersSection() {
-  const { currentChild } = useChildren();
-
-  if (!currentChild) {
-    return (
-      <p className="text-center py-10 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
-        请先在「成员管理」中添加成员
-      </p>
-    );
-  }
-
+export default function SemestersSection({
+  childId,
+  members,
+}: {
+  childId: number | null;
+  members?: Child[];
+}) {
   return (
     <div>
       <CrudSection
         title="学期管理"
-        endpoint={`/api/semesters?childId=${currentChild.id}`} childId={currentChild.id}
+        endpoint={childId != null ? `/api/semesters?childId=${childId}` : "/api/semesters"}
+        childId={childId}
+        members={members}
         fields={[
           { name: "name", label: "学期名称", required: true, placeholder: "如：一年级上学期 / 2026 秋季" },
           { name: "year", label: "年份", placeholder: "如：2026" },

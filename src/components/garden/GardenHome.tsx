@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Tag, Title, Tabs } from "animal-island-ui";
 import { api } from "@/lib/api";
-import { useChildren } from "@/lib/childContext";
+import { MemberFilter, useMemberSelect } from "@/components/MemberFilter";
 import { Chip, parseJsonArray } from "@/components/CrudSection";
 import {
   ACTIVITY_MAP,
@@ -42,7 +42,7 @@ interface GardenSetting {
 }
 
 export default function GardenHome({ initialTab }: { initialTab?: string }) {
-  const { currentChild } = useChildren();
+  const { children: kids, member, memberId, setMemberId } = useMemberSelect();
   const router = useRouter();
   const [records, setRecords] = useState<GardenRecord[]>([]);
   const [settings, setSettings] = useState<GardenSetting[]>([]);
@@ -50,8 +50,8 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
   const [tab, setTab] = useState(initialTab === "records" ? "records" : "cards");
 
   useEffect(() => {
-    if (!currentChild) return;
-    const cid = currentChild.id;
+    if (memberId == null) return;
+    const cid = memberId;
     Promise.all([
       api<GardenRecord[]>(`/api/garden-records?childId=${cid}`),
       api<GardenSetting[]>(`/api/garden-settings?childId=${cid}`),
@@ -61,7 +61,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         setSettings(sets);
       })
       .catch(() => {});
-  }, [currentChild]);
+  }, [memberId]);
 
   const settingsMap = useMemo(
     () => Object.fromEntries(settings.map((s) => [s.activity, s])),
@@ -84,7 +84,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
     };
   }, [records]);
 
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -94,11 +94,14 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
 
   return (
     <div>
-      <Title size="middle" color="app-green">
-        学习园地
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="app-green">
+          学习园地
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} allowAll={false} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-4" style={{ color: "var(--animal-text-color-secondary)" }}>
-        和 {currentChild.name} 一起玩中学：翻卡片、闯关卡、背唐诗，练习自动记入学习档案
+        和 {member?.name ?? ""} 一起玩中学：翻卡片、闯关卡、背唐诗，练习自动记入学习档案
       </p>
       <Tabs
         aria-label="学习园地分区"

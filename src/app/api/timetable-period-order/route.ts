@@ -4,16 +4,15 @@ import { db } from "@/db";
 import { timetablePeriodOrder } from "@/db/schema";
 import { requirePerm } from "@/lib/auth";
 
-// GET：孩子某学期（或不限学期）的节次顺序
+// GET：孩子某学期（或不限学期）的节次顺序；childId 可选，不传返回全部成员
 export async function GET(req: NextRequest) {
   const { user, denied } = await requirePerm("timetable-period-order", "list", req);
   if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const childId = searchParams.get("childId");
-  if (!childId) return NextResponse.json({ error: "缺少 childId" }, { status: 400 });
   const term = searchParams.get("term");
   const where = and(
-    eq(timetablePeriodOrder.childId, Number(childId)),
+    childId ? eq(timetablePeriodOrder.childId, Number(childId)) : undefined,
     eq(timetablePeriodOrder.userId, user!.id),
     term ? eq(timetablePeriodOrder.term, term) : undefined
   );

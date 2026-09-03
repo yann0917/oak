@@ -1,17 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Divider, Icon, Input, Modal, Select, DatePicker } from "animal-island-ui";
+import { Button, Divider, Icon, Input, Modal, Select, DatePicker, Tag } from "animal-island-ui";
 import { Notification } from "@/lib/toast";
 import { api } from "@/lib/api";
-import { useChildren } from "@/lib/childContext";
+import type { Child } from "@/lib/childContext";
+import { memberName } from "@/components/MemberFilter";
 import { CrudSection, ItemActions } from "@/components/CrudSection";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-const emptyLink = { teacherId: "", stage: "", startDate: "", endDate: "", notes: "" };
+const emptyLink = { teacherId: "", childId: "", stage: "", startDate: "", endDate: "", notes: "" };
 
-export default function TeachersSection() {
-  const { currentChild } = useChildren();
+export default function TeachersSection({
+  childId,
+  members,
+}: {
+  childId: number | null;
+  members?: Child[];
+}) {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [links, setLinks] = useState<any[]>([]);
   const [showLink, setShowLink] = useState(false);
@@ -25,15 +31,16 @@ export default function TeachersSection() {
   };
 
   const loadLinks = () => {
-    if (currentChild) {
-      api(`/api/child-teachers?childId=${currentChild.id}`).then(setLinks).catch(() => {});
-    }
+    api(childId != null ? `/api/child-teachers?childId=${childId}` : "/api/child-teachers")
+      .then(setLinks)
+      .catch(() => {});
   };
 
   useEffect(() => {
     loadTeachers();
     loadLinks();
-  }, [currentChild]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [childId]);
 
   const teacherName = (id: number) => teachers.find((t) => t.id === id)?.name ?? "（已删除）";
 
@@ -47,6 +54,7 @@ export default function TeachersSection() {
     setEditingLinkId(link.id);
     setLinkForm({
       teacherId: String(link.teacherId ?? ""),
+      childId: link.childId != null ? String(link.childId) : "",
       stage: link.stage ?? "",
       startDate: link.startDate ?? "",
       endDate: link.endDate ?? "",
@@ -56,11 +64,16 @@ export default function TeachersSection() {
   };
 
   const saveLink = async () => {
-    if (!linkForm.teacherId || !currentChild) return;
+    if (!linkForm.teacherId) return;
+    const targetChildId = childId ?? (linkForm.childId ? Number(linkForm.childId) : null);
+    if (!targetChildId) {
+      Notification.error("请选择成员");
+      return;
+    }
     setLinkSaving(true);
     try {
       const payload = {
-        childId: currentChild.id,
+        childId: targetChildId,
         teacherId: Number(linkForm.teacherId),
         stage: linkForm.stage,
         startDate: linkForm.startDate,
@@ -157,60 +170,65 @@ export default function TeachersSection() {
         />
       </div>
 
-      {currentChild && (
-        <div>
-          <Divider type="wave-yellow" />
-          <div className="flex items-center justify-between mt-6 mb-4">
-            <h3 className="font-bold" style={{ color: "var(--animal-text-color)" }}>
-              {currentChild.name} 的老师
-            </h3>
-            <Button type="primary" onClick={openAddLink}>
-              关联老师
-            </Button>
-          </div>
-          {links.length === 0 ? (
-            <div
-              className="text-center py-10 text-sm rounded-3xl border-2 border-dashed"
-              style={{
-                color: "var(--animal-text-color-secondary)",
-                borderColor: "var(--animal-border-color-light)",
-              }}
-            >
-              还没有关联老师
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {links.map((link) => (
-                <div
-                  key={link.id}
-                  className="flex items-center gap-3 p-4 rounded-3xl border-2"
-                  style={{
-                    background: "var(--animal-bg-color)",
-                    borderColor: "var(--animal-border-color-light)",
-                  }}
-                >
-                  <div className="flex-1">
-                    <p className="font-bold">{teacherName(link.teacherId)}</p>
-                    <p className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
-                      {link.stage && `${link.stage} · `}
-                      {link.startDate || "?"} ~ {link.endDate || "至今"}
-                      {link.notes && ` · ${link.notes}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button size="small" onClick={() => openEditLink(link)}>
-                      编辑
-                    </Button>
-                    <Button size="small" danger onClick={() => setDeletingLink(link.id)}>
-                      移除
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      <div>
+        <Divider type="wave-yellow" />
+        <div className="flex items-center justify-between mt-6 mb-4">
+          <h3 className="font-bold" style={{ color: "var(--animal-text-color)" }}>
+            老师关联
+          </h3>
+          <Button type="primary" onClick={openAddLink}>
+            关联老师
+          </Button>
         </div>
-      )}
+        {links.length === 0 ? (
+          <div
+            className="text-center py-10 text-sm rounded-3xl border-2 border-dashed"
+            style={{
+              color: "var(--animal-text-color-secondary)",
+              borderColor: "var(--animal-border-color-light)",
+            }}
+          >
+            还没有关联老师
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {links.map((link) => (
+              <div
+                key={link.id}
+                className="flex items-center gap-3 p-4 rounded-3xl border-2"
+                style={{
+                  background: "var(--animal-bg-color)",
+                  borderColor: "var(--animal-border-color-light)",
+                }}
+              >
+                <div className="flex-1">
+                  <p className="font-bold">
+                    {teacherName(link.teacherId)}
+                    {members && memberName(members, link.childId) && (
+                      <Tag size="small" variant="soft" color="app-blue" className="ml-2">
+                        {memberName(members, link.childId)}
+                      </Tag>
+                    )}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+                    {link.stage && `${link.stage} · `}
+                    {link.startDate || "?"} ~ {link.endDate || "至今"}
+                    {link.notes && ` · ${link.notes}`}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="small" onClick={() => openEditLink(link)}>
+                    编辑
+                  </Button>
+                  <Button size="small" danger onClick={() => setDeletingLink(link.id)}>
+                    移除
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Modal
         open={showLink}
@@ -228,6 +246,18 @@ export default function TeachersSection() {
         }
       >
         <div className="w-full max-h-[60vh] overflow-y-auto pr-1 pb-24 space-y-4">
+          {childId == null && members && (
+            <div>
+              <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+                成员 <span style={{ color: "var(--animal-error-color)" }}>*</span>
+              </label>
+              <Select
+                value={linkForm.childId ?? ""}
+                onChange={(key) => setLinkForm({ ...linkForm, childId: key })}
+                options={members.map((c) => ({ key: String(c.id), label: c.nickname || c.name }))}
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
               老师

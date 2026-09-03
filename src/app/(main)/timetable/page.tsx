@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Icon, Input, Modal, Select, Tag, TimePicker, Title } from "animal-island-ui";
 import { Notification } from "@/lib/toast";
 import { api } from "@/lib/api";
-import { useChildren } from "@/lib/childContext";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 
 const DAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
@@ -19,7 +19,7 @@ const emptySlot = {
 };
 
 export default function TimetablePage() {
-  const { currentChild } = useChildren();
+  const { children: kids, member, memberId, setMemberId } = useMemberFilter(false);
   const router = useRouter();
   const [slots, setSlots] = useState<any[]>([]);
   const [periodOrders, setPeriodOrders] = useState<Record<string, string[]>>({});
@@ -34,11 +34,11 @@ export default function TimetablePage() {
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const load = async (sid = semesterId) => {
-    if (!currentChild) return;
+    if (memberId == null) return;
     const [list, all, orders] = await Promise.all([
-      api<any[]>(`/api/semesters?childId=${currentChild.id}`),
-      api<any[]>(`/api/timetable-slots?childId=${currentChild.id}`),
-      api<any[]>(`/api/timetable-period-order?childId=${currentChild.id}`),
+      api<any[]>(`/api/semesters?childId=${memberId}`),
+      api<any[]>(`/api/timetable-slots?childId=${memberId}`),
+      api<any[]>(`/api/timetable-period-order?childId=${memberId}`),
     ]);
     // 学期按 年份 → 开始日期 → 创建顺序 排列
     const sorted = [...list].sort((a, b) => {
@@ -66,7 +66,8 @@ export default function TimetablePage() {
   useEffect(() => {
     setSemesterId("");
     load("").catch(() => {});
-  }, [currentChild]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberId]);
 
   const currentSemester = useMemo(
     () => semesters.find((s) => String(s.id) === semesterId),
@@ -93,7 +94,7 @@ export default function TimetablePage() {
 
   // 拖拽排序：落下时重排并持久化
   const reorderPeriods = async (from: number, to: number) => {
-    if (from === to || !currentChild || !currentSemester) return;
+    if (from === to || memberId == null || !currentSemester) return;
     const next = [...periods];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
@@ -102,7 +103,7 @@ export default function TimetablePage() {
       await api("/api/timetable-period-order", {
         method: "PUT",
         body: JSON.stringify({
-          childId: currentChild.id,
+          childId: memberId,
           term: currentSemester.name,
           periods: next,
         }),
@@ -152,11 +153,11 @@ export default function TimetablePage() {
       Notification.warning("请填写课程名称");
       return;
     }
-    if (!currentSemester) return;
+    if (!currentSemester || memberId == null) return;
     setSaving(true);
     try {
       const payload = {
-        childId: currentChild!.id,
+        childId: memberId,
         semesterId: currentSemester.id,
         day: slotForm.day,
         period: slotForm.period,
@@ -192,7 +193,7 @@ export default function TimetablePage() {
     await load();
   };
 
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -202,11 +203,14 @@ export default function TimetablePage() {
 
   return (
     <div>
-      <Title size="middle" color="app-blue">
-        课程表
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="app-blue">
+          课程表
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} allowAll={false} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-4" style={{ color: "var(--animal-text-color-secondary)" }}>
-        按学期维护 {currentChild.name} 的每周课程表，点击格子添加或修改课程
+        按学期维护 {member?.name ?? ""} 的每周课程表，点击格子添加或修改课程
       </p>
 
       {/* 学期选择 */}

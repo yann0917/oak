@@ -5,6 +5,7 @@ import { Card, Tag, Title } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { useChildren } from "@/lib/childContext";
 import { CrudSection, ItemActions, Chip, PhotoGrid, parseJsonArray } from "@/components/CrudSection";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 import { CERT_CATEGORIES, CERT_CATEGORY_COLOR } from "@/lib/certs";
 
 function daysTo(expire: string): number | null {
@@ -16,6 +17,7 @@ function daysTo(expire: string): number | null {
 
 export default function CertsPage() {
   const { children } = useChildren();
+  const { memberId, setMemberId } = useMemberFilter();
   const [records, setRecords] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
 
@@ -35,27 +37,32 @@ export default function CertsPage() {
     return c ? c.nickname || c.name : "";
   };
 
-  const lateCount = records.filter((r) => {
+  // 成员筛选后的记录（未关联成员的证件归入"全部成员"）
+  const filtered = memberId == null ? records : records.filter((r) => r.childId === memberId);
+  const lateCount = filtered.filter((r) => {
     const d = daysTo(r.expireDate);
     return d != null && d >= 0 && d <= 30;
   }).length;
-  const expiredCount = records.filter((r) => {
+  const expiredCount = filtered.filter((r) => {
     const d = daysTo(r.expireDate);
     return d != null && d < 0;
   }).length;
 
   return (
     <div>
-      <Title size="middle" color="yellow-green">
-        卡证档案
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="yellow-green">
+          卡证档案
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-3" style={{ color: "var(--animal-text-color-secondary)" }}>
         集中保管证件、证明、病历、检测单/报告、协议证书等原件照片与关键信息
       </p>
       {records.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-5">
           <Tag size="small" variant="soft" color="app-blue">
-            共 {total || records.length} 份
+            共 {memberId != null ? filtered.length : total || records.length} 份
           </Tag>
           {lateCount > 0 && (
             <Tag size="small" variant="soft" color="app-orange">
@@ -72,6 +79,7 @@ export default function CertsPage() {
       <CrudSection
         title="档案记录"
         endpoint="/api/cert-archives"
+        filterItem={(item) => memberId == null || item.childId === memberId}
         onDataChange={() =>
           api("/api/cert-archives?page=1&pageSize=200")
             .then((d: any) => {

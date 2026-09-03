@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Tabs, Title } from "animal-island-ui";
 import { api, OptionItem } from "@/lib/api";
-import { useChildren } from "@/lib/childContext";
 import { CrudSection, ItemActions, Chip } from "@/components/CrudSection";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 
 const EVALUATION_LABEL: Record<string, { text: string; color: string }> = {
   great: { text: "优秀", color: "app-green" },
@@ -14,20 +14,19 @@ const EVALUATION_LABEL: Record<string, { text: string; color: string }> = {
 };
 
 export default function LearningTabs({ initialTab }: { initialTab?: string }) {
-  const { currentChild } = useChildren();
+  const { children: kids, memberId, setMemberId } = useMemberFilter();
   const [semesters, setSemesters] = useState<OptionItem[]>([]);
   const [tab, setTab] = useState(initialTab === "activities" ? "activities" : "records");
 
   useEffect(() => {
-    if (currentChild) {
-      api<OptionItem[]>(`/api/semesters?childId=${currentChild.id}`).then(setSemesters).catch(() => {});
-    }
-  }, [currentChild]);
+    const q = memberId != null ? `?childId=${memberId}` : "";
+    api<OptionItem[]>(`/api/semesters${q}`).then(setSemesters).catch(() => {});
+  }, [memberId]);
 
   const semesterName = (id: any) =>
     semesters.find((s) => s.id === id)?.name ?? (id ? "（学期已删除）" : "");
 
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -35,13 +34,18 @@ export default function LearningTabs({ initialTab }: { initialTab?: string }) {
     );
   }
 
+  const memberQuery = memberId != null ? `?childId=${memberId}` : "";
+
   return (
     <div>
-      <Title size="middle" color="purple">
-        学习情况
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="purple">
+          学习情况
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-4" style={{ color: "var(--animal-text-color-secondary)" }}>
-        记录 {currentChild.name} 的学习表现、成绩与兴趣班
+        记录学习表现、成绩与兴趣班
       </p>
       <Tabs
         aria-label="学习情况分区"
@@ -54,7 +58,7 @@ export default function LearningTabs({ initialTab }: { initialTab?: string }) {
             children: (
               <CrudSection
                 title=""
-                endpoint={`/api/learning-records?childId=${currentChild.id}`} childId={currentChild.id}
+                endpoint={`/api/learning-records${memberQuery}`} childId={memberId} members={kids}
                 fields={[
                   { name: "date", label: "日期", type: "date" },
                   { name: "semesterId", label: "学期", type: "select", refList: "semesters" },
@@ -107,7 +111,7 @@ export default function LearningTabs({ initialTab }: { initialTab?: string }) {
               <div>
                 <CrudSection
                   title=""
-                  endpoint={`/api/activities?childId=${currentChild.id}`} childId={currentChild.id}
+                  endpoint={`/api/activities${memberQuery}`} childId={memberId} members={kids}
                   fields={[
                     { name: "name", label: "名称", required: true, placeholder: "如：少儿美术 / 钢琴一对一" },
                     { name: "category", label: "类别", placeholder: "如：美术、音乐、体育、编程" },

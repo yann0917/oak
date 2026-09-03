@@ -20,6 +20,7 @@ import { api } from "@/lib/api";
 import { PhotoGrid, parseJsonArray } from "@/components/CrudSection";
 import { Pencil, Pill, School, Syringe, Wallet } from "lucide-react";
 import { useChildren } from "@/lib/childContext";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 
 // 模板 icon：lucide 图标名 -> 组件（见 src/lib/reminders/templates.ts）
 const TEMPLATE_ICONS: Record<string, any> = { Syringe, Pill, Wallet, School, Pencil };
@@ -138,6 +139,7 @@ const EMPTY_FORM = {
 
 export default function RemindersPage() {
   const { children: kids } = useChildren();
+  const { memberId, setMemberId } = useMemberFilter();
   const [items, setItems] = useState<ReminderItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ReminderItem | null>(null);
@@ -159,6 +161,7 @@ export default function RemindersPage() {
 
   const activeCount = items.filter((i) => i.enabled).length;
   const failedCount = items.filter((i) => i.retryCount > 0).length;
+  const filteredItems = memberId == null ? items : items.filter((i) => i.childId === memberId);
 
   const openCreate = (tpl?: ReminderTemplate) => {
     setEditing(null);
@@ -292,7 +295,8 @@ export default function RemindersPage() {
             把疫苗、视力检查、缴费、家长会串起来的定时推送枢纽
           </p>
         </div>
-        <div className="flex gap-2 text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+          <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
           <Tag size="small" variant="soft" color="app-green">
             启用中 {activeCount}
           </Tag>
@@ -342,15 +346,15 @@ export default function RemindersPage() {
                 </div>
 
                 {/* 提醒列表 */}
-                {items.length === 0 ? (
+                {filteredItems.length === 0 ? (
                   <Card type="dashed">
                     <div className="text-center py-8 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
-                      还没有提醒，点击上方模板或「添加提醒」开始
+                      {items.length > 0 ? "该成员下暂无提醒" : "还没有提醒，点击上方模板或「添加提醒」开始"}
                     </div>
                   </Card>
                 ) : (
                   <div className="grid gap-3">
-                    {items.map((item) => (
+                    {filteredItems.map((item) => (
                       <ReminderCard
                         key={item.id}
                         item={item}

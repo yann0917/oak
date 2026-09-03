@@ -3,6 +3,7 @@
 import { Tag, Title } from "animal-island-ui";
 import { useChildren } from "@/lib/childContext";
 import { CrudSection, ItemActions, PhotoGrid, parseJsonArray } from "@/components/CrudSection";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 import { HEALTH_TYPES } from "@/lib/api";
 
 const TYPE_COLOR: Record<string, string> = {
@@ -13,9 +14,10 @@ const TYPE_COLOR: Record<string, string> = {
 };
 
 export default function HealthPage() {
-  const { currentChild } = useChildren();
+  const { children: kids } = useChildren();
+  const { memberId, setMemberId } = useMemberFilter();
 
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -25,15 +27,20 @@ export default function HealthPage() {
 
   return (
     <div>
-      <Title size="middle" color="app-red">
-        健康档案
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="app-red">
+          健康档案
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-4" style={{ color: "var(--animal-text-color-secondary)" }}>
-        记录 {currentChild.name} 的体检、疫苗接种、用药与病历
+        记录体检、疫苗接种、用药与病历
       </p>
       <CrudSection
         title="健康记录"
-        endpoint={`/api/health-records?childId=${currentChild.id}`} childId={currentChild.id}
+        endpoint={memberId != null ? `/api/health-records?childId=${memberId}` : "/api/health-records"}
+        childId={memberId}
+        members={kids}
         fields={[
           { name: "title", label: "标题", required: true, placeholder: "如：入园体检 / 流感疫苗第2针" },
           { name: "type", label: "类型", type: "select", options: HEALTH_TYPES, defaultValue: "体检" },

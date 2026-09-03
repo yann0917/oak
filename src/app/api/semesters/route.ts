@@ -9,13 +9,13 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const childId = searchParams.get("childId");
-  if (!childId) {
-    return NextResponse.json({ error: "缺少 childId 参数" }, { status: 400 });
-  }
+  // childId 可选：不传时返回全部（页面用成员筛选展示所有成员数据）
+  const conditions = [eq(semesters.userId, user!.id)];
+  if (childId) conditions.push(eq(semesters.childId, Number(childId)));
   const rows = db
     .select()
     .from(semesters)
-    .where(and(eq(semesters.childId, Number(childId)), eq(semesters.userId, user!.id)))
+    .where(and(...conditions))
     .orderBy(asc(semesters.id))
     .all();
   return NextResponse.json(rows);

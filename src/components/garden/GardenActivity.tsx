@@ -15,7 +15,7 @@ import {
   Typewriter,
 } from "animal-island-ui";
 import { api } from "@/lib/api";
-import { useChildren } from "@/lib/childContext";
+import { MemberFilter, useMemberSelect } from "@/components/MemberFilter";
 import { toast } from "@/lib/toast";
 import { Chip } from "@/components/CrudSection";
 import OwlTeacher, { type OwlAction } from "@/components/garden/OwlTeacher";
@@ -174,7 +174,7 @@ function cardSpeech(q: Question, revealed: boolean): SpeechLine | null {
 export default function GardenActivity({ type }: { type: string }) {
   const meta = ACTIVITY_MAP[type];
   const router = useRouter();
-  const { currentChild } = useChildren();
+  const { children: kids, member, memberId, setMemberId } = useMemberSelect();
 
   const [loading, setLoading] = useState(true);
   const [phase, setPhase] = useState<"intro" | "playing" | "done">("intro");
@@ -225,8 +225,8 @@ export default function GardenActivity({ type }: { type: string }) {
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!currentChild) return;
-    const cid = currentChild.id;
+    if (memberId == null) return;
+    const cid = memberId;
     const jobs: Promise<unknown>[] = [
       api<any[]>(`/api/garden-settings?childId=${cid}`),
       api<MasteryItem[]>(`/api/garden-mastery?childId=${cid}&activity=${type}`),
@@ -258,7 +258,7 @@ export default function GardenActivity({ type }: { type: string }) {
         setLoading(false);
         say("idle", "跟我一起开始今天的练习吧！");
       });
-  }, [currentChild, type]);
+  }, [memberId, type]);
 
   useEffect(
     () => () => {
@@ -285,19 +285,19 @@ export default function GardenActivity({ type }: { type: string }) {
 
   // 进入结果页时自动保存本次练习（会话记录 + 知识点掌握度）
   useEffect(() => {
-    if (phase !== "done" || !currentChild || savedRef.current) return;
+    if (phase !== "done" || memberId == null || savedRef.current) return;
     savedRef.current = true;
     api("/api/garden-records", {
       method: "POST",
       body: JSON.stringify({
-        childId: currentChild.id,
+        childId: memberId,
         activity: type,
         difficulty,
         durationSec,
         results,
       }),
     }).catch(() => {});
-  }, [phase, currentChild, type, difficulty, durationSec, results]);
+  }, [phase, memberId, type, difficulty, durationSec, results]);
 
   // 结果页：按正确率给吉祥物反应（高分激情夸奖，低分惋惜安慰）
   useEffect(() => {
@@ -314,7 +314,7 @@ export default function GardenActivity({ type }: { type: string }) {
   const weakCount = mastery.filter((m) => m.wrongCount > 0).length;
 
   if (!meta) return null;
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -338,7 +338,7 @@ export default function GardenActivity({ type }: { type: string }) {
     api("/api/garden-settings", {
       method: "POST",
       body: JSON.stringify({
-        childId: currentChild.id,
+        childId: memberId,
         activity: type,
         difficulty,
         config: configToSave,
@@ -466,7 +466,7 @@ export default function GardenActivity({ type }: { type: string }) {
     setPhase("intro");
     say("idle", "准备好了吗？再来一轮！");
     // 重新拉取掌握度，下一轮按最新薄弱项加权
-    api<MasteryItem[]>(`/api/garden-mastery?childId=${currentChild.id}&activity=${type}`)
+    api<MasteryItem[]>(`/api/garden-mastery?childId=${memberId}&activity=${type}`)
       .then(setMastery)
       .catch(() => {});
   };
@@ -479,7 +479,7 @@ export default function GardenActivity({ type }: { type: string }) {
         {
           method: "POST",
           body: JSON.stringify({
-            childId: currentChild.id,
+            childId: memberId,
             chars: newChars,
             tier: addTier,
             pinyin: manualPinyin,
@@ -555,6 +555,11 @@ export default function GardenActivity({ type }: { type: string }) {
           >
             {voiceMuted ? "🔇" : "🔊"}
           </div>
+          {phase === "intro" && (
+            <div className="w-40 shrink-0">
+              <MemberFilter value={memberId} onChange={setMemberId} allowAll={false} />
+            </div>
+          )}
           <div className="ml-auto flex items-center gap-3">
             {phase === "playing" && (
               <div

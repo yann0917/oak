@@ -5,24 +5,25 @@ import { Card, Tag, Title } from "animal-island-ui";
 import { api, OptionItem } from "@/lib/api";
 import { useChildren } from "@/lib/childContext";
 import { CrudSection, ItemActions, Chip, PhotoGrid, parseJsonArray } from "@/components/CrudSection";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 import { BILL_DIRECTIONS, BILL_STATUSES, BILL_TYPES, BILL_TYPE_COLOR } from "@/lib/bills";
 
 export default function BillsPage() {
-  const { currentChild } = useChildren();
+  const { children: kids } = useChildren();
+  const { memberId, setMemberId } = useMemberFilter();
   const [records, setRecords] = useState<any[]>([]);
   const [semesters, setSemesters] = useState<OptionItem[]>([]);
 
   useEffect(() => {
-    if (currentChild) {
-      api(`/api/bills?childId=${currentChild.id}`).then(setRecords).catch(() => {});
-      api<OptionItem[]>(`/api/semesters?childId=${currentChild.id}`).then(setSemesters).catch(() => {});
-    }
-  }, [currentChild]);
+    const q = memberId != null ? `?childId=${memberId}` : "";
+    api(`/api/bills${q}`).then(setRecords).catch(() => {});
+    api<OptionItem[]>(`/api/semesters${q}`).then(setSemesters).catch(() => {});
+  }, [memberId]);
 
   const semesterName = (id: any) =>
     semesters.find((s) => s.id === id)?.name ?? (id ? "（学期已删除）" : "");
 
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -37,11 +38,14 @@ export default function BillsPage() {
 
   return (
     <div>
-      <Title size="middle" color="yellow-green">
-        账单
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="yellow-green">
+          账单
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-3" style={{ color: "var(--animal-text-color-secondary)" }}>
-        记录 {currentChild.name} 的学费、餐费、医疗、购物等各类收支，支持凭证照片
+        记录学费、餐费、医疗、购物等各类收支，支持凭证照片
       </p>
       <div className="grid grid-cols-2 gap-3 mb-5">
         <Card color="app-blue">
@@ -61,8 +65,14 @@ export default function BillsPage() {
       </div>
       <CrudSection
         title="收支记录"
-        endpoint={`/api/bills?childId=${currentChild.id}`} childId={currentChild.id}
-        onDataChange={() => api(`/api/bills?childId=${currentChild.id}`).then(setRecords).catch(() => {})}
+        endpoint={memberId != null ? `/api/bills?childId=${memberId}` : "/api/bills"}
+        childId={memberId}
+        members={kids}
+        onDataChange={() =>
+          api(memberId != null ? `/api/bills?childId=${memberId}` : "/api/bills")
+            .then(setRecords)
+            .catch(() => {})
+        }
         fields={[
           { name: "title", label: "项目", required: true, placeholder: "如：2026秋季学费 / 交电费" },
           { name: "direction", label: "收支方向", type: "select", options: BILL_DIRECTIONS, defaultValue: "支出" },

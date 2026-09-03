@@ -7,6 +7,8 @@ import { api, OptionItem } from "@/lib/api";
 import { PhotoUploader } from "./PhotoUploader";
 import { PhotoLightbox } from "./PhotoLightbox";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { memberName } from "./MemberFilter";
+import type { Child } from "@/lib/childContext";
 
 export type { OptionItem } from "@/lib/api";
 
@@ -32,6 +34,8 @@ export function CrudSection({
   renderItem,
   onDataChange,
   childId,
+  members,
+  filterItem,
   pageSize,
 }: {
   title: string;
@@ -40,8 +44,12 @@ export function CrudSection({
   renderItem: (item: any, actions: { edit: () => void; remove: () => void }) => ReactNode;
   /** 列表发生增删改后回调（用于联动刷新页面其他区域） */
   onDataChange?: () => void;
-  /** 孩子维度的表：新建时自动附带 childId */
-  childId?: number;
+  /** 孩子维度的表：新建时自动附带 childId；传 null 且提供 members 时，表单出现成员选择字段 */
+  childId?: number | null;
+  /** 成员列表：用于在每条记录上展示关联成员标签 */
+  members?: Child[];
+  /** 客户端过滤（接口不支持 childId 筛选时用，如卡证档案） */
+  filterItem?: (item: any) => boolean;
   /** 传入即开启分页，每次只加载一页数据 */
   pageSize?: number;
 }) {
@@ -57,6 +65,8 @@ export function CrudSection({
   // 分页状态（pageSize 未传时固定为 1，一次加载全部）
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  // 全部成员模式：不固定 childId，新建/编辑时需在表单中选择成员
+  const allMembersMode = childId == null && !!members?.length;
 
   const load = async (targetPage = page) => {
     if (pageSize) {
@@ -82,8 +92,10 @@ export function CrudSection({
     const lists: Record<string, OptionItem[]> = {};
     if (needSchools) lists.schools = await api("/api/schools");
     if (needTeachers) lists.teachers = await api("/api/teachers");
-    if (needSemesters && childId != null) {
-      lists.semesters = await api(`/api/semesters?childId=${childId}`);
+    if (needSemesters) {
+      lists.semesters = await api(
+        childId != null ? `/api/semesters?childId=${childId}` : "/api/semesters"
+      );
     }
     setRefLists(lists);
   };
@@ -96,6 +108,7 @@ export function CrudSection({
     for (const f of fields) {
       init[f.name] = f.type === "photos" ? [] : f.defaultValue ?? "";
     }
+    if (allMembersMode) init.childId = "";
     setForm(init);
     setEditing(null);
     setError("");
@@ -120,6 +133,7 @@ export function CrudSection({
         init[f.name] = raw ?? "";
       }
     }
+    if (allMembersMode) init.childId = item.childId != null ? String(item.childId) : "";
     setForm(init);
     setEditing(item);
     setError("");
@@ -143,7 +157,15 @@ export function CrudSection({
             form[f.name] !== "" && form[f.name] != null ? Number(form[f.name]) : null;
         }
       }
-      if (childId != null) payload.childId = childId;
+      if (childId != null) {
+        payload.childId = childId;
+      } else if (allMembersMode) {
+        if (!form.childId) {
+          setError("请选择成员");
+          return;
+        }
+        payload.childId = Number(form.childId);
+      }
       if (editing) {
         await api(`${baseEndpoint}/${editing.id}`, {
           method: "PUT",
@@ -213,14 +235,24 @@ export function CrudSection({
         </Card>
       ) : (
         <div className="grid gap-3">
-          {items.map((item) => (
-            <Card key={item.id}>
-              {renderItem(item, {
-                edit: () => openEdit(item),
-                remove: () => setDeleting(item),
-              })}
-            </Card>
-          ))}
+          {items.filter(filterItem ?? (() => true)).map((item) => {
+            const mName = members ? memberName(members, item.childId) : "";
+            return (
+              <Card key={item.id}>
+                {mName && (
+                  <div className="mb-2 flex items-center justify-between">
+                    <Tag size="small" variant="soft" color="app-blue">
+                      {mName}
+                    </Tag>
+                  </div>
+                )}
+                {renderItem(item, {
+                  edit: () => openEdit(item),
+                  remove: () => setDeleting(item),
+                })}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -245,6 +277,22 @@ export function CrudSection({
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {allMembersMode && (
+            <div className="sm:col-span-2">
+              <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
+                成员 <span style={{ color: "var(--animal-error-color)" }}>*</span>
+              </label>
+              <Select
+                value={form.childId ? String(form.childId) : ""}
+                placeholder="请选择成员"
+                options={(members ?? []).map((c) => ({
+                  key: String(c.id),
+                  label: c.nickname || c.name,
+                }))}
+                onChange={(key) => setForm({ ...form, childId: key })}
+              />
+            </div>
+          )}
           {fields.map((f) => (
             <div
               key={f.name}

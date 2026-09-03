@@ -6,7 +6,7 @@ import { authorize, requireUser } from "@/lib/auth";
 type AnyTable = any;
 
 interface CrudOptions {
-  /** 按 child_id 过滤的表需要传 true */
+  /** 按 child_id 过滤的表需要传 true；childId 参数可选，缺省时返回该用户全部成员数据 */
   childScoped?: boolean;
   /** 默认排序字段（drizzle 列），默认按 id desc */
   orderBy?: any;
@@ -30,10 +30,10 @@ export function makeCollectionHandlers(table: AnyTable, opts: CrudOptions = { ap
     const conditions: SQL[] = [eq(table.userId, auth.user.id)];
     if (childScoped) {
       const childId = searchParams.get("childId");
-      if (!childId) {
-        return NextResponse.json({ error: "缺少 childId 参数" }, { status: 400 });
+      // childId 可选：不传时返回全部（页面用成员筛选展示所有成员数据）
+      if (childId) {
+        conditions.push(eq(table.childId, Number(childId)));
       }
-      conditions.push(eq(table.childId, Number(childId)));
     }
     const where = conditions.length === 1 ? conditions[0] : and(...conditions);
     const orderCol = orderBy ?? table.id;

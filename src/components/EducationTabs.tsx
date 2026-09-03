@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import { Tabs, Tag, Title } from "animal-island-ui";
 import { api, STAGES } from "@/lib/api";
-import { useChildren } from "@/lib/childContext";
 import { CrudSection, ItemActions, Chip, OptionItem } from "@/components/CrudSection";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 import SemestersSection from "@/components/SemestersSection";
 import TeachersSection from "@/components/TeachersSection";
 
 const TAB_KEYS = ["enrollments", "schools", "semesters", "teachers"];
 
 export default function EducationTabs({ initialTab }: { initialTab?: string }) {
-  const { currentChild } = useChildren();
+  const { children: kids, memberId, setMemberId } = useMemberFilter();
   const [schools, setSchools] = useState<OptionItem[]>([]);
   const [tab, setTab] = useState(
     TAB_KEYS.includes(initialTab ?? "") ? (initialTab as string) : "enrollments"
@@ -23,21 +23,18 @@ export default function EducationTabs({ initialTab }: { initialTab?: string }) {
 
   useEffect(loadSchools, []);
 
-  if (!currentChild) {
-    return (
-      <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
-        请先在「成员管理」中添加成员
-      </p>
-    );
-  }
+  const memberQuery = memberId != null ? `?childId=${memberId}` : "";
 
   return (
     <div>
-      <Title size="middle" color="app-blue">
-        教育经历
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="app-blue">
+          教育经历
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-4" style={{ color: "var(--animal-text-color-secondary)" }}>
-        记录 {currentChild.name} 的学校、学期、老师与各学习阶段（幼儿园、小学、初中……均可记录）
+        记录学校、学期、老师与各学习阶段（幼儿园、小学、初中……均可记录）
       </p>
       <Tabs
         aria-label="教育经历分区"
@@ -50,7 +47,7 @@ export default function EducationTabs({ initialTab }: { initialTab?: string }) {
             children: (
               <CrudSection
                 title="入学/阶段记录"
-                endpoint={`/api/enrollments?childId=${currentChild.id}`} childId={currentChild.id}
+                endpoint={`/api/enrollments${memberQuery}`} childId={memberId} members={kids}
                 fields={[
                   { name: "schoolId", label: "学校", type: "select", refList: "schools", required: true },
                   { name: "stage", label: "学习阶段", type: "select", options: STAGES, required: true },
@@ -155,12 +152,12 @@ export default function EducationTabs({ initialTab }: { initialTab?: string }) {
           {
             key: "semesters",
             label: "学期",
-            children: <SemestersSection />,
+            children: <SemestersSection childId={memberId} members={kids} />,
           },
           {
             key: "teachers",
             label: "老师",
-            children: <TeachersSection />,
+            children: <TeachersSection childId={memberId} members={kids} />,
           },
         ]}
       />

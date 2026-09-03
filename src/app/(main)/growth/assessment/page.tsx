@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, Title, Input, Button, Tag, DatePicker } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { Notification } from "@/lib/toast";
-import { useChildren } from "@/lib/childContext";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 import {
   STANDARD_DATA,
   diffMonths,
@@ -43,7 +43,7 @@ const IMG_H = 1200;
 const PLOT = { left: 136, right: 1536, top: 120, bottom: 1098 };
 
 export default function GrowthAssessmentPage() {
-  const { currentChild } = useChildren();
+  const { children: kids, member, memberId, setMemberId } = useMemberFilter(false);
   const [birth, setBirth] = useState("");
   const [gender, setGender] = useState<"male" | "female">("male");
   const [mdate, setMdate] = useState(todayStr());
@@ -52,12 +52,12 @@ export default function GrowthAssessmentPage() {
   const [hc, setHc] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // 进入页面时用当前成员档案 + 最近一条身高体重记录预填
+  // 进入页面或切换成员时用成员档案 + 最近一条身高体重记录预填
   useEffect(() => {
-    if (!currentChild) return;
-    if (currentChild.birthday) setBirth(currentChild.birthday);
-    setGender(currentChild.gender === "male" ? "male" : "female");
-    api<any[]>(`/api/growth-records?childId=${currentChild.id}`)
+    if (!member) return;
+    if (member.birthday) setBirth(member.birthday);
+    setGender(member.gender === "male" ? "male" : "female");
+    api<any[]>(`/api/growth-records?childId=${member.id}`)
       .then((recs) => {
         const latest = [...recs]
           .filter((r) => r.height != null || r.weight != null)
@@ -70,9 +70,9 @@ export default function GrowthAssessmentPage() {
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentChild?.id]);
+  }, [member?.id]);
 
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -203,7 +203,7 @@ export default function GrowthAssessmentPage() {
       ctx.fillText("儿童生长标准测评", pad, 66);
       ctx.font = "400 24px -apple-system, PingFang SC, sans-serif";
       ctx.fillStyle = "#a18b6f";
-      const info = `${currentChild.name} · ${gender === "male" ? "男" : "女"} · 出生 ${birth} · 测量 ${mdate || todayStr()} · ${ageText}`;
+      const info = `${member?.name ?? ""} · ${gender === "male" ? "男" : "女"} · 出生 ${birth} · 测量 ${mdate || todayStr()} · ${ageText}`;
       ctx.fillText(info, pad, 106);
       results.forEach((r, i) => {
         const y = 148 + i * 38;
@@ -277,7 +277,7 @@ export default function GrowthAssessmentPage() {
 
       const a = document.createElement("a");
       a.href = c.toDataURL("image/png");
-      a.download = `生长测评_${currentChild.name}_${mdate}.png`;
+      a.download = `生长测评_${member?.name ?? ""}_${mdate}.png`;
       a.click();
     } catch {
       Notification.error("图片加载失败，请稍后重试");
@@ -294,14 +294,17 @@ export default function GrowthAssessmentPage() {
             儿童生长标准测评
           </Title>
           <p className="text-sm mt-3" style={{ color: "var(--animal-text-color-secondary)" }}>
-            {currentChild.name} · 输入出生日期与测量值，自动在国标参考图上定位并给出等级评价
+            {member?.name ?? ""} · 输入出生日期与测量值，自动在国标参考图上定位并给出等级评价
           </p>
         </div>
-        <Link href="/growth">
-          <Button type="default" size="small">
-            返回成长记录
-          </Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <MemberFilter value={memberId} onChange={setMemberId} allowAll={false} className="w-44" />
+          <Link href="/growth">
+            <Button type="default" size="small">
+              返回成长记录
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>

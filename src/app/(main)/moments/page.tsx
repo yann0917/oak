@@ -3,11 +3,13 @@
 import { Tag, Title } from "animal-island-ui";
 import { useChildren } from "@/lib/childContext";
 import { CrudSection, ItemActions, PhotoGrid, parseJsonArray } from "@/components/CrudSection";
+import { MemberFilter, useMemberFilter } from "@/components/MemberFilter";
 
 export default function MomentsPage() {
-  const { currentChild } = useChildren();
+  const { children: kids } = useChildren();
+  const { memberId, setMemberId } = useMemberFilter();
 
-  if (!currentChild) {
+  if (kids.length === 0) {
     return (
       <p className="text-center py-20 text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
         请先在「成员管理」中添加成员
@@ -17,15 +19,20 @@ export default function MomentsPage() {
 
   return (
     <div>
-      <Title size="middle" color="app-pink">
-        时光相册
-      </Title>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Title size="middle" color="app-pink">
+          时光相册
+        </Title>
+        <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
+      </div>
       <p className="text-sm mt-3 mb-4" style={{ color: "var(--animal-text-color-secondary)" }}>
-        用照片和文字记录 {currentChild.name} 的难忘瞬间
+        用照片和文字记录难忘瞬间
       </p>
       <CrudSection
         title="时光瞬间"
-        endpoint={`/api/moments?childId=${currentChild.id}`} childId={currentChild.id}
+        endpoint={memberId != null ? `/api/moments?childId=${memberId}` : "/api/moments"}
+        childId={memberId}
+        members={kids}
         fields={[
           { name: "title", label: "标题", required: true, placeholder: "如：第一天上幼儿园" },
           { name: "date", label: "日期", type: "date" },
