@@ -1,0 +1,108 @@
+# 推送 main 后自动构建 standalone 独立部署包并部署到 /opt/oak ，
+# 也可在 Actions 页面手动触发（workflow_dispatch）。
+#
+# 部署包内容：server.js + 裁剪版 node_modules + .next（含 static）+ public
+# 注意：部署包不含 data/、uploads/（用户数据不进制品）。
+# 制品 oak-dist 仍会上传保留 14 天，用于回滚或手动下载。
+#
+# 需要在仓库 Settings → Secrets and variables → Actions 配置：
+#   OAK_HOST            服务器地址（IP 或域名）
+#   OAK_USER            SSH 用户名
+#   OAK_SSH_KEY         SSH 私钥完整内容（-----BEGIN ... 到 -----END ...）
+#   OAK_PORT            可选，SSH 端口（默认 22）
+#   OAK_KEY_PASSPHRASE  可选，私钥口令
+
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # upload-artifact 需要写 Actions 制品
+  actions: write
+
+env:
+  OAK_HOST: ${{ secrets.OAK_HOST }}
+  OAK_USER: ${{ secrets.OAK_USER }}
+  OAK_KEY: ${{ secrets.OAK_SSH_KEY }}
+  OAK_PORT: ${{ secrets.OAK_PORT }}
+  OAK_KEY_PASSPHRASE: ${{ secrets.OAK_KEY_PASSPHRASE }}
+
+jobs:
+  build-and-deploy:
+    name: 构建并部署
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: |
+          npm install
+          npm run build
+
+      - name: 组装部署包
+        run: |
+          # standalone 需手动补齐静态资源与 public
+          cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/static
+          # 本机构建时 tracer 会把本地 data/ uploads/ 复制进产物；
+          # CI 仓库里没有这两个目录，这里防御性清理，避免把数据带进制品
+          rm -rf .next/standalone/data .next/standalone/uploads
+          # 删除 tracer 顺带复制的运行无关文件（README/LICENSE、构建配置、
+          # 源码目录、锁文件、README 截图等），压缩包不被这些拖累
+          rm -rf \
+            README.md LICENSE \
+            eslint.config.mjs postcss.config.mjs tailwind.config.ts \
+            tsconfig.json tsconfig.tsbuildinfo \
+            package-lock.json skills-lock.json \
+            src scripts images
+          tar -czf oak-dist.tar.gz -C .next/standalone .
+          du -sh oak-dist.tar.gz
+
+      - name: 上传制品（留档，含回滚用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: oak-dist
+          path: oak-dist.tar.gz
+          retention-days: 14
+
+      - name: 上传并解压到 /opt/oak
+        run: |
+          set -euo pipefail
+          : "${OAK_HOST:?缺少 OAK_HOST secret}"
+          : "${OAK_USER:?缺少 OAK_USER secret}"
+          : "${OAK_KEY:?缺少 OAK_SSH_KEY secret}"
+          SSH_PORT="${OAK_PORT:-22}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${OAK_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT}" -H "${OAK_HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+
+          # 私钥带口令时经 ssh-agent 挂载（用 printf 逐行生成 askpass，避免 heredoc 缩进问题）
+          if [ -n "${OAK_KEY_PASSPHRASE}" ]; then
+            eval "$(ssh-agent -s)" >/dev/null
+            printf '%s\n' \
+              '#!/bin/sh' \
+              ': "${OAK_KEY_PASSPHRASE:?}"' \
+              'printf "%s\n" "$OAK_KEY_PASSPHRASE"' > /tmp/askpass.sh
+            chmod +x /tmp/askpass.sh
+            export SSH_ASKPASS=/tmp/askpass.sh
+            export SSH_ASKPASS_REQUIRE=force
+            ssh-add ~/.ssh/id_ed25519
+          fi
+
+          # 注意：ssh 的端口参数是小写 -p，scp 的是大写 -P，不能共用同一组参数
+          SSH_OPTS=(-i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+
+          ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" 'mkdir -p /opt/oak'
+          scp "${SSH_OPTS[@]}" -P "${SSH_PORT}" oak-dist.tar.gz "${OAK_USER}@${OAK_HOST}:/opt/oak/oak-dist.tar.gz"
+          ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" 'set -e; cd /opt/oak && rm -rf .next node_modules server.js public && tar -xzf oak-dist.tar.gz && test -f server.js && test -d .next/static && echo "部署完成，/opt/oak 当前内容：" && ls -la'

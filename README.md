@@ -153,7 +153,7 @@ npm start        # 访问 http://localhost:3000
 
 ## 部署到服务器
 
-GitHub Actions 只负责构建（`.github/workflows/build.yml`）：推送 `main` 分支后自动产出 **standalone 独立部署包**（自带按需裁剪的 node_modules，压缩包约 65MB），在 Actions 页面对应 run 的 Artifacts 里下载 `oak-dist`（或 `gh run download -n oak-dist`），scp 到服务器解压运行。**服务器上不执行 npm install。**
+GitHub Actions（`.github/workflows/build-deploy.yml`）负责 **构建 + 部署**：推送 `main` 分支（或在 Actions 页面手动触发）后自动构建 **standalone 独立部署包**（自带按需裁剪的 node_modules，压缩包约 65MB）并 scp 到服务器 `/opt/oak/` 解压覆盖，**服务器上不执行 npm install**。同时仍会上传 `oak-dist` 制品（保留 14 天）用于回滚或手动下载（`gh run download -n oak-dist`）。
 
 > **服务器系统要求：Ubuntu 22.04+ / Debian 12+**。better-sqlite3 的预编译模块需要 glibc ≥ 2.34（Ubuntu 20.04 的 2.31、CentOS 7 的 2.17 都不满足），Node 22 官方包也要求 glibc ≥ 2.28。服务器另需 Node.js 20.9+。
 
