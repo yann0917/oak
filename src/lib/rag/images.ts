@@ -86,16 +86,23 @@ export function collectImagePaths(userId: number): ImageRef[] {
   return out;
 }
 
-const CAPTION_SYSTEM = `你是家庭照片描述助手。根据用户提供的图片，用一句中文描述（50 字以内）：人物、场景、物品、事件即可，只描述事实，不评论、不加价值判断。输出严格 JSON：{"caption": "..."}`;
+const CAPTION_SYSTEM = `你是家庭照片描述助手。根据用户提供的图片，输出一项 caption：
+- 图片包含文字（发票、证件、单据、报告、通知等）：提取并保留图片中的关键文字内容——编号/证号、金额、日期、单位名称、姓名、事项等，按原文顺序组织，尽量完整。
+- 图片没有文字（生活照、风景等）：用一句中文描述（50 字以内）：人物、场景、物品、事件。
+只描述事实，不评论、不加价值判断。输出严格 JSON：{"caption": "..."}`;
 
-/** 对尚未生成描述的图片调用视觉模型（复用当前对话模型），失败的单个跳过不阻塞 */
+/** 对尚未生成描述的图片调用视觉模型（复用当前对话模型；DeepSeek 非视觉型号自动切视觉），失败的单个跳过不阻塞 */
 export async function ensureImageCaptions(userId: number): Promise<void> {
   const cfg = getAiRuntimeConfig(userId);
   if (!cfg.enabled || !cfg.provider?.baseUrl || !cfg.provider.model) return;
+  const model =
+    cfg.provider.provider === "deepseek" && !cfg.provider.model.includes("vision")
+      ? "deepseek-v4-flash-vision-exp"
+      : cfg.provider.model;
   const aiCfg = {
     baseUrl: cfg.provider.baseUrl,
     apiKey: cfg.provider.apiKey,
-    model: cfg.provider.model,
+    model,
     provider: cfg.provider.provider,
   };
 
@@ -120,9 +127,9 @@ export async function ensureImageCaptions(userId: number): Promise<void> {
           },
         ],
         temperature: 0.1,
-        maxTokens: 200,
+        maxTokens: 4096,
       });
-      const caption = String(raw?.caption ?? "").trim().slice(0, 120);
+      const caption = String(raw?.caption ?? "").trim().slice(0, 800);
       const now = new Date().toISOString();
       if (caption) {
         db.insert(ragImageCaptions)

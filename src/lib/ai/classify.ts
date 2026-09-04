@@ -76,11 +76,15 @@ export function photoPathToDataUrl(p: string): string {
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
 
-/** 多模态消息：文字 + 图片（图片随 user 消息传入，DeepSeek 文档要求图片仅支持 user 消息） */
+/** 多模态消息：文字 + 图片（DeepSeek 视觉支持公网 URL 直传或内联 base64，图片仅随 user 消息） */
 export function buildTextWithPhotos(text: string, photos: string[]): ChatContentItem[] {
   return [
     { type: "text", text },
-    ...photos.map((p) => ({ type: "image_url" as const, image_url: { url: photoPathToDataUrl(p) } })),
+    ...photos.map((p) => ({
+      type: "image_url" as const,
+      // 公网 http(s) URL 直传（文档推荐，省 base64 膨胀）；本地 /uploads 路径转 data URL
+      image_url: { url: /^https?:\/\//i.test(p) ? p : photoPathToDataUrl(p) },
+    })),
   ];
 }
 
@@ -115,7 +119,7 @@ export async function classifyQuickNote(
       },
     ],
     temperature: 0.1,
-    maxTokens: 1600,
+    maxTokens: 4096,
   });
   return normalizeResult(raw);
 }

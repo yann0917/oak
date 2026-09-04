@@ -103,7 +103,7 @@ export async function generateInsight(userId: number, period: InsightPeriod) {
         const raw = await chatJSON<any>(cfg, {
           messages,
           temperature: 0.4,
-          maxTokens: 2500,
+          maxTokens: 4096,
           timeoutMs: 90_000,
         });
         insights = normalizeInsights(raw);

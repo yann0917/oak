@@ -104,7 +104,7 @@ export async function chatCompletion(cfg: AiConfigInput, opts: ChatOptions): Pro
           model,
           messages: opts.messages,
           temperature: opts.temperature ?? 0.2,
-          max_tokens: opts.maxTokens ?? 4000,
+          max_tokens: opts.maxTokens ?? 4096,
           ...(useJson ? { response_format: { type: "json_object" as const } } : {}),
           // thinking 等厂商扩展字段不在 SDK 类型里，按变体透传
           ...(variants[i] as any),

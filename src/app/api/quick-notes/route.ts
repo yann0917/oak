@@ -6,6 +6,7 @@ import { getAiRuntimeConfig } from "@/lib/ai/config";
 import { authorize, requireUser } from "@/lib/auth";
 import { buildChildBriefs, classifyQuickNote, todayString } from "@/lib/ai/classify";
 import { dispatchQuickIntent } from "@/lib/ai/dispatch";
+import { downloadRemotePhoto } from "@/lib/quick/download";
 
 function parseResult(row: any) {
   let result: any = {};
@@ -56,9 +57,26 @@ export async function POST(req: NextRequest) {
   const content = typeof body.content === "string" ? body.content.trim() : "";
   if (!content) return NextResponse.json({ error: "内容不能为空" }, { status: 400 });
   if (content.length > 2000) return NextResponse.json({ error: "内容过长（最多 2000 字）" }, { status: 400 });
-  const photos = Array.isArray(body.photos)
-    ? body.photos.filter((p: any) => typeof p === "string" && p.startsWith("/uploads/") && p.length < 300).slice(0, 3)
+  const rawPhotos = Array.isArray(body.photos)
+    ? body.photos.filter((p: any) => typeof p === "string" && p.length < 2000).slice(0, 3)
     : [];
+  // 归档用本地副本（前端展示 / 业务表附件），识图用原链接（DeepSeek 视觉支持公网 URL 直传）
+  const photos: string[] = [];
+  const photoForAi: string[] = [];
+  for (const p of rawPhotos) {
+    if (p.startsWith("/uploads/")) {
+      photos.push(p);
+      photoForAi.push(p);
+      continue;
+    }
+    if (!/^https?:\/\//i.test(p)) return NextResponse.json({ error: "照片需为 /uploads/ 路径或 http(s) 图片链接" }, { status: 400 });
+    try {
+      photos.push(await downloadRemotePhoto(p));
+      photoForAi.push(p);
+    } catch (e: any) {
+      return NextResponse.json({ error: `图片链接保存失败：${e?.message ?? "无法下载"}` }, { status: 400 });
+    }
+  }
 
   // 默认成员：前端传的当前成员（校验归属）；未传且只有一个成员时自动取该成员
   const userChildren = db.select().from(children).where(eq(children.userId, uid)).all();
@@ -95,7 +113,7 @@ export async function POST(req: NextRequest) {
         today: todayString(),
         children: buildChildBriefs(userChildren),
         defaultChildId,
-        photos,
+        photos: photoForAi, // 外链原 URL 直传视觉模型；本地照片仍为 /uploads/ 路径（转 data URL）
       }
     );
 

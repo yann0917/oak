@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       ],
       temperature: 0,
       // deepseek v4 等带思考模式的模型会先消耗推理 token，设置足够上限避免被截断
-      maxTokens: 300,
+      maxTokens: 4096,
       timeoutMs: 20_000,
     });
     return NextResponse.json({ ok: true, reply });
