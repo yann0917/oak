@@ -68,7 +68,8 @@ export function photoPathToDataUrl(p: string): string {
   const clean = p.replace(/^\/+/, "");
   // 只允许读取本应用自己的 uploads 目录，防止任意文件读取
   if (!clean.startsWith("uploads/")) throw new Error(`非法照片路径：${p}`);
-  const filePath = path.join(process.cwd(), clean);
+  // 静态限定在 uploads 子目录（仅文件名动态），避免 turbopack 把整个项目纳入追踪
+  const filePath = path.join(process.cwd(), "uploads", clean.slice("uploads/".length));
   const ext = path.extname(filePath).toLowerCase();
   const mime =
     ext === ".png" ? "image/png" : ext === ".gif" ? "image/gif" : ext === ".webp" ? "image/webp" : "image/jpeg";
