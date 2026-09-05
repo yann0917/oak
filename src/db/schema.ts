@@ -682,3 +682,29 @@ export const aiUsage = sqliteTable(
   },
   (t) => [uniqueIndex("idx_ai_usage_date_model").on(t.date, t.model)]
 );
+
+// 食谱库：外部 GitHub 仓库（Gar-b-age/CookLikeHOC《像老乡鸡那样做饭》）定期同步的只读内容，
+// 无用户维度——全家共享一份；分类 = 仓库顶层目录名，菜名 = md 文件名
+export const recipes = sqliteTable(
+  "recipes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    category: text("category").notNull().default(""), // 分类，如 "炒菜"
+    name: text("name").notNull().default(""), // 菜名，如 "什锦蛋炒饭"
+    sourcePath: text("source_path").notNull(), // 仓库内路径，如 "炒菜/什锦蛋炒饭.md"（同步唯一键）
+    content: text("content").notNull().default(""), // markdown 正文（图片链接已改写为 /uploads/recipes/images/）
+    image: text("image").notNull().default(""), // 首图本地路径，列表封面用
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [uniqueIndex("idx_recipes_source_path").on(t.sourcePath), index("idx_recipes_category").on(t.category)]
+);
+
+// 食谱同步状态（单行 id=1）：记录上游 commit 与最近一次同步结果
+export const recipeSyncState = sqliteTable("recipe_sync_state", {
+  id: integer("id").primaryKey(),
+  lastCommit: text("last_commit").notNull().default(""), // 上游 main 分支最新 commit sha
+  lastSyncedAt: text("last_synced_at").notNull().default(""), // 最近一次真正拉取时间
+  lastStatus: text("last_status").notNull().default(""), // ok | error
+  lastError: text("last_error").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});

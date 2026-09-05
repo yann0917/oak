@@ -25,7 +25,8 @@ export const menuSeedDefs: MenuSeedNode[] = [
   { type: "menu", name: "成员管理", path: "/children", icon: "icon-miles", sort: 13 },
   { type: "menu", name: "设置", path: "/settings", icon: "icon-helicopter", sort: 14 },
   { type: "menu", name: "错题本/笔记", path: "/notes", icon: "icon-critterpedia", sort: 16 },
-  { type: "menu", name: "关于", path: "/about", icon: "icon-map", sort: 17 },
+  { type: "menu", name: "食谱", path: "/recipes", icon: "icon-diy", sort: 17 },
+  { type: "menu", name: "关于", path: "/about", icon: "icon-map", sort: 18 },
   {
     type: "dir",
     name: "实用工具",

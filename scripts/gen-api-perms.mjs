@@ -48,6 +48,7 @@ const RESOURCE_LABELS = {
   "policy-notes": "政策动态",
   "push-channels": "推送渠道",
   "quick-notes": "一句话快记",
+  recipes: "食谱",
   "ai-settings": "AI 设置",
   "ai-providers": "模型配置",
   "ai-chat": "AI 助手",
@@ -90,6 +91,8 @@ const SUB_ACTION_LABELS = {
   "export-get": "导出数据",
   "import-post": "导入数据",
   "probe-post": "运行检测",
+  "sync-get": "同步状态",
+  "sync-post": "立即同步",
 };
 
 function parseMethodNames(source) {

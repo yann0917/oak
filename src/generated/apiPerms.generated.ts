@@ -579,6 +579,26 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "一句话快记·修改"
   },
   {
+    "resource": "recipes",
+    "perms": "api:recipes:detail",
+    "label": "食谱·查看详情"
+  },
+  {
+    "resource": "recipes",
+    "perms": "api:recipes:list",
+    "label": "食谱·查看列表"
+  },
+  {
+    "resource": "recipes",
+    "perms": "api:recipes:sync-get",
+    "label": "食谱·同步状态"
+  },
+  {
+    "resource": "recipes",
+    "perms": "api:recipes:sync-post",
+    "label": "食谱·立即同步"
+  },
+  {
     "resource": "reminders",
     "perms": "api:reminders:create",
     "label": "提醒中心·新增"

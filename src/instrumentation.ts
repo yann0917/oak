@@ -7,4 +7,7 @@ export async function register() {
   // 家庭脉搏：周/月复盘自动生成
   const { startInsightScheduler } = await import("@/lib/insights/scheduler");
   startInsightScheduler();
+  // 食谱库：定期同步上游 GitHub 仓库
+  const { startRecipeScheduler } = await import("@/lib/recipes/scheduler");
+  startRecipeScheduler();
 }

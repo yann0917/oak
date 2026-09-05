@@ -810,6 +810,29 @@ CREATE TABLE IF NOT EXISTS mcp_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id);
 `);
+
+// 食谱库：外部仓库定期同步的只读内容（无用户维度，全家共享）
+sqlite.exec(`
+CREATE TABLE IF NOT EXISTS recipes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
+  source_path TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  image TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_recipes_source_path ON recipes(source_path);
+CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
+CREATE TABLE IF NOT EXISTS recipe_sync_state (
+  id INTEGER PRIMARY KEY,
+  last_commit TEXT NOT NULL DEFAULT '',
+  last_synced_at TEXT NOT NULL DEFAULT '',
+  last_status TEXT NOT NULL DEFAULT '',
+  last_error TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+`);
 // 记忆检索配置：embedding 服务商（指向 ai_providers.id）与模型名覆盖（空 = 按服务商预设默认）
 ensureColumn("ai_settings", "embedding_provider_id", "INTEGER");
 ensureColumn("ai_settings", "embedding_model", "TEXT NOT NULL DEFAULT ''");
@@ -837,6 +860,13 @@ sqlite.prepare("UPDATE menus SET name = '账单', path = '/bills' WHERE path = '
 const certMenuExists = sqlite.prepare("SELECT id FROM menus WHERE type = 'menu' AND path = '/certs'").get();
 if (!certMenuExists) {
   sqlite.exec("UPDATE menus SET sort = sort + 1 WHERE type = 'menu' AND sort >= 10");
+}
+
+// 食谱菜单插入迁移（幂等）：老库尚无「食谱」时，把 sort>=17 的菜单（关于）整体后移一位，
+// 给新菜单腾出 sort=17 的位置（食谱排在错题本/笔记之后、关于之前）。
+const recipesMenuExists = sqlite.prepare("SELECT id FROM menus WHERE type = 'menu' AND (path = '/recipes' OR name = '食谱')").get();
+if (!recipesMenuExists) {
+  sqlite.exec("UPDATE menus SET sort = sort + 1 WHERE type = 'menu' AND sort >= 17");
 }
 
 // 权限种子：admin 超管升级 + 菜单树 + 示例角色（幂等）
