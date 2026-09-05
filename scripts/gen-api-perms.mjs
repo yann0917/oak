@@ -93,6 +93,7 @@ const SUB_ACTION_LABELS = {
   "probe-post": "运行检测",
   "sync-get": "同步状态",
   "sync-post": "立即同步",
+  "suggest-post": "AI 推荐菜谱",
 };
 
 function parseMethodNames(source) {

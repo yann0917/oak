@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, desc, eq, gte, like, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { anysearchExtract, anysearchSearch } from "./anysearch";
 import { retrieveRag } from "@/lib/rag/store";
@@ -19,6 +19,7 @@ import {
   notes,
   policyNotes,
   quickNotes,
+  recipes,
   reminders,
   reviewCards,
   schools,
@@ -175,6 +176,40 @@ export function buildAgentTools(uid: number, opts: { searchApiKey?: string } = {
           .limit(normLimit(limit))
           .all();
         return { rows };
+      },
+      records
+    ),
+
+    // 1.6 食谱库（全局只读内容，无用户维度）
+    queryRecipes: define(
+      "queryRecipes",
+      "查询食谱库《像老乡鸡那样做饭》（家常菜配料与步骤）。可按菜名/食材/步骤关键词搜索（如 鸡翅、蛋炒饭、可乐），或按分类浏览（炒菜/蒸菜/配料/早餐/主食/饮品/炸品/砂锅菜/炖菜/烫菜/卤菜/煮锅/汤/凉拌/烤类）",
+      z.object({
+        keyword: z.string().optional().describe("菜名/食材/步骤关键词"),
+        category: z.string().optional().describe("按分类筛选，如 炒菜"),
+        limit: z.number().int().min(1).max(8).optional().describe("带完整做法返回的菜谱数量，默认 3"),
+      }),
+      async ({ keyword, category, limit }) => {
+        const kw = (keyword ?? "").trim();
+        const cat = (category ?? "").trim();
+        const n = Math.min(8, Math.max(1, Math.floor(Number(limit) || 3)));
+        const conds = [cat ? eq(recipes.category, cat) : undefined, kw ? or(like(recipes.name, `%${kw}%`), like(recipes.content, `%${kw}%`)) : undefined];
+        const rows = db
+          .select({ id: recipes.id, category: recipes.category, name: recipes.name, content: recipes.content })
+          .from(recipes)
+          .where(and(...conds))
+          .orderBy(kw ? sql`CASE WHEN ${recipes.name} LIKE ${`%${kw}%`} THEN 0 ELSE 1 END` : sql`1`, recipes.id)
+          .limit(kw ? n : 50)
+          .all();
+        if (!rows.length) {
+          const cats = db.select({ category: recipes.category, count: sql<number>`count(*)` }).from(recipes).groupBy(recipes.category).all();
+          if (!cats.length) return { rows: [], note: "食谱库还是空的，尚未同步菜谱" };
+          return { rows: [], note: `没有匹配的菜谱。现有分类：${cats.map((c) => `${c.category}(${c.count})`).join("、")}` };
+        }
+        // 关键词搜索返回完整做法；纯分类浏览只给菜名清单（避免刷屏），需要做法时再按关键词搜
+        return kw
+          ? { total: rows.length, rows }
+          : { total: rows.length, rows: rows.map((r) => ({ id: r.id, category: r.category, name: r.name })), note: "清单仅含菜名，需要具体做法时用 keyword 搜索菜名" };
       },
       records
     ),

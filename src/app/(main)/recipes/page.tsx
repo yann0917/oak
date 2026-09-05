@@ -8,6 +8,7 @@ import { Button, Card, Input, Tag, Title } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { Notification } from "@/lib/toast";
 import { Perm } from "@/components/Perm";
+import { WhatToEatModal } from "@/components/WhatToEatModal";
 
 interface RecipeCategory {
   name: string;
@@ -85,6 +86,7 @@ export default function RecipesPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
+  const [eatOpen, setEatOpen] = useState(false);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -127,6 +129,9 @@ export default function RecipesPage() {
           </Tag>
         )}
         <div className="ml-auto flex items-center gap-3">
+          <Button size="small" type="primary" onClick={() => setEatOpen(true)}>
+            今天吃什么
+          </Button>
           <Perm perm="api:recipes:sync-post">
             <SyncBadge />
           </Perm>
@@ -195,6 +200,8 @@ export default function RecipesPage() {
           </section>
         </div>
       )}
+
+      <WhatToEatModal open={eatOpen} onClose={() => setEatOpen(false)} />
     </div>
   );
 }

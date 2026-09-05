@@ -590,6 +590,11 @@ export const API_PERMS: ApiPermDef[] = [
   },
   {
     "resource": "recipes",
+    "perms": "api:recipes:suggest-post",
+    "label": "食谱·AI 推荐菜谱"
+  },
+  {
+    "resource": "recipes",
     "perms": "api:recipes:sync-get",
     "label": "食谱·同步状态"
   },
