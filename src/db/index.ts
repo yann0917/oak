@@ -796,6 +796,19 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   updated_at TEXT NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_date_model ON ai_usage(date, model);
+
+-- MCP 接入令牌：JWT 的 sha256 摘要（校验/撤销用），不存明文
+CREATE TABLE IF NOT EXISTS mcp_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  name TEXT NOT NULL DEFAULT '',
+  token_hash TEXT NOT NULL,
+  expires_at TEXT NOT NULL DEFAULT '',
+  last_used_at TEXT NOT NULL DEFAULT '',
+  status INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id);
 `);
 // 记忆检索配置：embedding 服务商（指向 ai_providers.id）与模型名覆盖（空 = 按服务商预设默认）
 ensureColumn("ai_settings", "embedding_provider_id", "INTEGER");

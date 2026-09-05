@@ -7,17 +7,17 @@ import { users } from "@/db/schema";
 import type { InferSelectModel } from "drizzle-orm";
 import { hasPerm } from "./casbin";
 
-const SECRET = process.env.AUTH_SECRET || "edu-tracker-dev-secret-change-me";
+export const AUTH_SECRET = process.env.AUTH_SECRET || "edu-tracker-dev-secret-change-me";
 
 export type AuthUser = InferSelectModel<typeof users>;
 
 export function signToken(payload: { uid: number; username: string }) {
-  return jwt.sign(payload, SECRET, { expiresIn: "30d" });
+  return jwt.sign(payload, AUTH_SECRET, { expiresIn: "30d" });
 }
 
 export function verifyToken(token: string) {
   try {
-    return jwt.verify(token, SECRET) as { uid: number; username: string };
+    return jwt.verify(token, AUTH_SECRET) as { uid: number; username: string };
   } catch {
     return null;
   }

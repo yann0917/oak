@@ -649,6 +649,24 @@ export const rolesMenus = sqliteTable(
   (t) => [primaryKey({ columns: [t.roleId, t.menuId] })]
 );
 
+// ===== MCP 接入令牌（外部 agent 经 stdio/HTTP 调用只读工具的凭证）=====
+
+// 令牌本体：复用 AUTH_SECRET 签的 JWT（payload {uid, scope:"mcp"}），此处存 sha256 供校验/撤销
+export const mcpTokens = sqliteTable(
+  "mcp_tokens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id").notNull().default(1), // 归属用户（工具按此 uid 隔离）
+    name: text("name").notNull().default(""), // 备注名，如 "codex-agent"
+    tokenHash: text("token_hash").notNull(), // sha256(JWT)
+    expiresAt: text("expires_at").notNull().default(""), // ISO，空表示永久有效
+    lastUsedAt: text("last_used_at").notNull().default(""), // 最近一次验证时间
+    status: integer("status").notNull().default(1), // 1 启用 | 0 已撤销
+    createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  },
+  (t) => [index("idx_mcp_tokens_user").on(t.userId)]
+);
+
 // AI 调用用量：client.ts 埋点，按天+模型聚合（设置页展示，无用户维度——家庭自用单库）
 export const aiUsage = sqliteTable(
   "ai_usage",

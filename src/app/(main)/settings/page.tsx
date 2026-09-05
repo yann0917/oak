@@ -5,6 +5,9 @@ import { Button, Card, Input, Tabs, Title } from "animal-island-ui";
 import { Notification } from "@/lib/toast";
 import { api } from "@/lib/api";
 import AiSettingsCard from "@/components/AiSettingsCard";
+import McpTokensCard from "@/components/McpTokensCard";
+import DataBackupCard from "@/components/DataBackupCard";
+import DiagnosticsCard from "@/components/DiagnosticsCard";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState("profile");
@@ -140,6 +143,21 @@ export default function SettingsPage() {
             key: "ai",
             label: "AI 大模型",
             children: <AiSettingsCard />,
+          },
+          {
+            key: "mcp",
+            label: "MCP 接入",
+            children: <McpTokensCard />,
+          },
+          {
+            key: "backup",
+            label: "数据管理",
+            children: <DataBackupCard />,
+          },
+          {
+            key: "diagnostics",
+            label: "系统诊断",
+            children: <DiagnosticsCard />,
           },
         ]}
       />

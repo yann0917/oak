@@ -214,6 +214,26 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "成员·修改"
   },
   {
+    "resource": "data-backup",
+    "perms": "api:data-backup:export-get",
+    "label": "数据管理·导出数据"
+  },
+  {
+    "resource": "data-backup",
+    "perms": "api:data-backup:import-post",
+    "label": "数据管理·导入数据"
+  },
+  {
+    "resource": "diagnostics",
+    "perms": "api:diagnostics:list",
+    "label": "系统诊断·查看列表"
+  },
+  {
+    "resource": "diagnostics",
+    "perms": "api:diagnostics:probe-post",
+    "label": "系统诊断·运行检测"
+  },
+  {
     "resource": "enrollments",
     "perms": "api:enrollments:create",
     "label": "就读阶段·新增"
@@ -392,6 +412,31 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "learning-records",
     "perms": "api:learning-records:update",
     "label": "学习记录·修改"
+  },
+  {
+    "resource": "mcp",
+    "perms": "api:mcp:create",
+    "label": "mcp·新增"
+  },
+  {
+    "resource": "mcp",
+    "perms": "api:mcp:list",
+    "label": "mcp·查看列表"
+  },
+  {
+    "resource": "mcp-tokens",
+    "perms": "api:mcp-tokens:create",
+    "label": "MCP 接入令牌·新增"
+  },
+  {
+    "resource": "mcp-tokens",
+    "perms": "api:mcp-tokens:delete",
+    "label": "MCP 接入令牌·删除"
+  },
+  {
+    "resource": "mcp-tokens",
+    "perms": "api:mcp-tokens:list",
+    "label": "MCP 接入令牌·查看列表"
   },
   {
     "resource": "moments",

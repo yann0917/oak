@@ -60,6 +60,9 @@ const RESOURCE_LABELS = {
   "timetable-slots": "课程表",
   tts: "语音朗读",
   upload: "文件上传",
+  "mcp-tokens": "MCP 接入令牌",
+  "data-backup": "数据管理",
+  diagnostics: "系统诊断",
 };
 
 /** 非标准 CRUD 资源的动作特例（资源名 → 方法 → { action, label }） */
@@ -84,6 +87,9 @@ const SUB_ACTION_LABELS = {
   "logs-get": "发送日志",
   "logs-read-post": "标记已读",
   "notifications-get": "站内通知",
+  "export-get": "导出数据",
+  "import-post": "导入数据",
+  "probe-post": "运行检测",
 };
 
 function parseMethodNames(source) {
