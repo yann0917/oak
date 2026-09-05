@@ -17,6 +17,7 @@ interface Notebook {
 interface NoteItem {
   id: number;
   title: string;
+  kind: "mistake" | "article";
   source: string;
   tags: string[];
   enabled: number;
@@ -148,6 +149,9 @@ export default function NotesPage() {
           <Link href="/notes/new">
             <Button size="small">录入错题</Button>
           </Link>
+          <Link href="/notes/new?kind=article">
+            <Button size="small">写文章</Button>
+          </Link>
           <Button size="small" onClick={() => setNbModal(true)}>
             笔记本
           </Button>
@@ -212,6 +216,7 @@ export default function NotesPage() {
                     {item.title}
                   </Link>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {item.kind === "article" && <Tag size="small" variant="soft" color="app-blue">文章随笔</Tag>}
                     {item.notebookName && <Tag size="small" color="app-teal">{item.notebookName}</Tag>}
                     {item.source && <span className="text-xs text-secondary">📄 {item.source}</span>}
                     {item.tags.map((t) => (
@@ -222,13 +227,17 @@ export default function NotesPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <div className="text-right text-xs">
-                    <div className={item.state !== null && item.state !== 0 ? "font-bold" : ""} style={{ color: "var(--animal-primary-color-active)" }}>
-                      {item.state !== null ? STATE_LABEL[item.state] ?? "新卡" : "新卡"}
-                    </div>
-                    <div className="text-secondary mt-0.5">{fmtDue(item.due)}</div>
-                  </div>
-                  <Switch checked={!!item.enabled} onChange={() => toggleEnabled(item)} aria-label="暂停/恢复复习" />
+                  {item.kind !== "article" && (
+                    <>
+                      <div className="text-right text-xs">
+                        <div className={item.state !== null && item.state !== 0 ? "font-bold" : ""} style={{ color: "var(--animal-primary-color-active)" }}>
+                          {item.state !== null ? STATE_LABEL[item.state] ?? "新卡" : "新卡"}
+                        </div>
+                        <div className="text-secondary mt-0.5">{fmtDue(item.due)}</div>
+                      </div>
+                      <Switch checked={!!item.enabled} onChange={() => toggleEnabled(item)} aria-label="暂停/恢复复习" />
+                    </>
+                  )}
                   <Link href={`/notes/${item.id}/edit`} className="text-sm text-secondary hover:underline">
                     编辑
                   </Link>

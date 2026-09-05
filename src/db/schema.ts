@@ -395,6 +395,8 @@ export const notes = sqliteTable("notes", {
   tags: text("tags").notNull().default("[]"), // JSON 字符串数组
   source: text("source").notNull().default(""),
   enabled: integer("enabled").notNull().default(1), // 是否参与复习
+  kind: text("kind").notNull().default("mistake"), // mistake=错题 | article=文章随笔
+  contentFormat: text("content_format").notNull().default("doc"), // doc=TipTap JSON | markdown=源文本
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
@@ -645,4 +647,20 @@ export const rolesMenus = sqliteTable(
     menuId: integer("menu_id").notNull().references(() => menus.id, { onDelete: "cascade" }),
   },
   (t) => [primaryKey({ columns: [t.roleId, t.menuId] })]
+);
+
+// AI 调用用量：client.ts 埋点，按天+模型聚合（设置页展示，无用户维度——家庭自用单库）
+export const aiUsage = sqliteTable(
+  "ai_usage",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    date: text("date").notNull(), // YYYY-MM-DD（北京时间）
+    model: text("model").notNull(),
+    calls: integer("calls").notNull().default(0),
+    promptTokens: integer("prompt_tokens").notNull().default(0),
+    completionTokens: integer("completion_tokens").notNull().default(0),
+    errors: integer("errors").notNull().default(0),
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [uniqueIndex("idx_ai_usage_date_model").on(t.date, t.model)]
 );

@@ -34,6 +34,11 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "兴趣班·修改"
   },
   {
+    "resource": "ai",
+    "perms": "api:ai:complete-post",
+    "label": "ai·complete-post"
+  },
+  {
     "resource": "ai-chat",
     "perms": "api:ai-chat:create",
     "label": "AI 助手·新增"
@@ -102,6 +107,11 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "ai-settings",
     "perms": "api:ai-settings:test-post",
     "label": "AI 设置·测试推送"
+  },
+  {
+    "resource": "ai-usage",
+    "perms": "api:ai-usage:list",
+    "label": "ai-usage·查看列表"
   },
   {
     "resource": "bills",
@@ -622,6 +632,11 @@ export const API_PERMS: ApiPermDef[] = [
     "resource": "semesters",
     "perms": "api:semesters:update",
     "label": "学期·修改"
+  },
+  {
+    "resource": "stats",
+    "perms": "api:stats:heatmap-get",
+    "label": "复习统计·heatmap-get"
   },
   {
     "resource": "stats",

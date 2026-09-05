@@ -540,6 +540,9 @@ ensureColumn("schools", "intro", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("timetable_slots", "semester_id", "INTEGER");
 ensureColumn("learning_records", "semester_id", "INTEGER");
 ensureColumn("bills", "semester_id", "INTEGER");
+// 笔记类型：mistake=错题（默认，存量均为错题）；article=文章随笔（markdown 源文本，无复习卡）
+ensureColumn("notes", "kind", "TEXT NOT NULL DEFAULT 'mistake'");
+ensureColumn("notes", "content_format", "TEXT NOT NULL DEFAULT 'doc'");
 ensureColumn("push_logs", "content", "TEXT NOT NULL DEFAULT ''");
 ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("users", "status", "INTEGER NOT NULL DEFAULT 1");
@@ -780,6 +783,19 @@ CREATE TABLE IF NOT EXISTS rag_image_captions (
   updated_at TEXT NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_rag_image_captions_path ON rag_image_captions(user_id, path);
+
+-- AI 调用用量（client.ts 埋点，按天+模型聚合，设置页展示）
+CREATE TABLE IF NOT EXISTS ai_usage (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  model TEXT NOT NULL,
+  calls INTEGER NOT NULL DEFAULT 0,
+  prompt_tokens INTEGER NOT NULL DEFAULT 0,
+  completion_tokens INTEGER NOT NULL DEFAULT 0,
+  errors INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_date_model ON ai_usage(date, model);
 `);
 // 记忆检索配置：embedding 服务商（指向 ai_providers.id）与模型名覆盖（空 = 按服务商预设默认）
 ensureColumn("ai_settings", "embedding_provider_id", "INTEGER");

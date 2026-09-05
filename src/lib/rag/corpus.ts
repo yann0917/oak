@@ -146,11 +146,13 @@ export function buildCorpus(userId: number): CorpusDoc[] {
     if (text) docs.push({ docKey: `moments:${r.id}`, childId: r.childId, date: r.date, title: r.title, module: "时光相册", text });
   }
 
-  // 笔记/错题：正文（TipTap JSON）+ 复习卡正反面（Markdown）
+  // 笔记/错题：正文（错题=TipTap JSON，文章=markdown 源文本）+ 复习卡正反面（Markdown）
   for (const r of db
     .select({
       id: notes.id,
       title: notes.title,
+      kind: notes.kind,
+      contentFormat: notes.contentFormat,
       content: notes.content,
       question: notes.question,
       answer: notes.answer,
@@ -160,11 +162,12 @@ export function buildCorpus(userId: number): CorpusDoc[] {
     .from(notes)
     .where(eq(notes.userId, userId))
     .all()) {
-    const body = tiptapToText(r.content);
-    const q = mdToText(r.question);
-    const a = mdToText(r.answer);
+    const isArticle = r.kind === "article";
+    const body = r.contentFormat === "markdown" ? mdToText(r.content) : tiptapToText(r.content);
+    const q = isArticle ? "" : mdToText(r.question);
+    const a = isArticle ? "" : mdToText(r.answer);
     const text = joinText([r.tags && `标签：${mdToText(r.tags)}`, body && `正文：${body}`, q && `题目：${q}`, a && `答案：${a}`]);
-    if (text) docs.push({ docKey: `notes:${r.id}`, childId: null, date: dateOf(r.updatedAt), title: r.title, module: "笔记/错题", text });
+    if (text) docs.push({ docKey: `notes:${r.id}`, childId: null, date: dateOf(r.updatedAt), title: r.title, module: isArticle ? "文章" : "笔记/错题", text });
   }
 
   // 政策动态

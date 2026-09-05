@@ -24,8 +24,14 @@ export async function GET(req: NextRequest) {
   const conds = [eq(notes.userId, auth.user.id)];
   if (q) conds.push(like(notes.title, `%${q}%`));
   if (notebookId && notebookId !== "all") conds.push(eq(notes.notebookId, Number(notebookId)));
-  if (enabled === "1") conds.push(eq(notes.enabled, 1));
-  if (enabled === "0") conds.push(eq(notes.enabled, 0));
+  if (enabled === "1") {
+    conds.push(eq(notes.enabled, 1));
+    conds.push(eq(notes.kind, "mistake"));
+  }
+  if (enabled === "0") {
+    conds.push(eq(notes.enabled, 0));
+    conds.push(eq(notes.kind, "mistake"));
+  }
   if (dueOnly) conds.push(lte(reviewCards.due, new Date().toISOString()));
 
   const rows = db
@@ -52,7 +58,7 @@ export async function GET(req: NextRequest) {
   );
 }
 
-/** 新建笔记：正文 content 为 novel JSON 字符串；同时发一张复习卡 */
+/** 新建笔记：错题正文为 novel JSON 字符串（同时发一张复习卡）；文章随笔为 markdown 源文本（不进复习队列） */
 export async function POST(req: NextRequest) {
   const auth = requireUser(req);
   if ("response" in auth) return auth.response;
@@ -62,6 +68,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const title = (body.title ?? "").trim();
   if (!title) return NextResponse.json({ error: "标题不能为空" }, { status: 400 });
+  const kind = body.kind === "article" ? "article" : "mistake";
   const notebookId = body.notebookId ? Number(body.notebookId) : null;
   if (notebookId) {
     const nb = db.select().from(notebooks).where(eq(notebooks.id, notebookId)).get();
@@ -74,7 +81,14 @@ export async function POST(req: NextRequest) {
       userId: auth.user.id,
       notebookId,
       title,
-      content: typeof body.content === "string" ? body.content : JSON.stringify({ type: "doc", content: [] }),
+      kind,
+      contentFormat: kind === "article" ? "markdown" : "doc",
+      content:
+        typeof body.content === "string" && body.content
+          ? body.content
+          : kind === "article"
+            ? ""
+            : JSON.stringify({ type: "doc", content: [] }),
       question: String(body.question ?? ""),
       answer: String(body.answer ?? ""),
       tags: JSON.stringify(Array.isArray(body.tags) ? body.tags.filter((t: unknown) => typeof t === "string").slice(0, 12) : []),
@@ -83,6 +97,6 @@ export async function POST(req: NextRequest) {
     })
     .returning()
     .get();
-  createCardIfAbsent(row.id, auth.user.id);
+  if (row.kind === "mistake") createCardIfAbsent(row.id, auth.user.id);
   return NextResponse.json(withTags(row), { status: 201 });
 }

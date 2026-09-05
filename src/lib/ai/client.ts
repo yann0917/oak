@@ -1,4 +1,7 @@
 import OpenAI from "openai";
+import { sql } from "drizzle-orm";
+import { db } from "@/db";
+import { aiUsage } from "@/db/schema";
 
 /**
  * OpenAI 兼容客户端（官方 openai SDK）：{base_url}/chat/completions。
@@ -23,6 +26,8 @@ export interface ChatOptions {
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  /** 中断上游请求（客户端断开/用户点击停止时传入 req.signal） */
+  signal?: AbortSignal;
 }
 
 /** 调用所需的配置输入（来自 ai_settings 表或设置页表单） */
@@ -72,6 +77,32 @@ function toAiError(e: any): AiError {
   return new AiError(status ? `接口错误 ${status}：${raw}` : `请求失败：${raw}`, status);
 }
 
+/** 用量埋点：按天+模型聚合写入 ai_usage，失败静默（绝不影响主调用） */
+function recordUsage(model: string, patch: { prompt?: number; completion?: number; error?: boolean }) {
+  try {
+    const date = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Shanghai" }).format(new Date());
+    const now = new Date().toISOString();
+    const p = Math.max(0, Math.floor(patch.prompt ?? 0));
+    const c = Math.max(0, Math.floor(patch.completion ?? 0));
+    const err = patch.error ? 1 : 0;
+    db.insert(aiUsage)
+      .values({ date, model, calls: 1, promptTokens: p, completionTokens: c, errors: err, updatedAt: now })
+      .onConflictDoUpdate({
+        target: [aiUsage.date, aiUsage.model],
+        set: {
+          calls: sql`${aiUsage.calls} + 1`,
+          promptTokens: sql`${aiUsage.promptTokens} + ${p}`,
+          completionTokens: sql`${aiUsage.completionTokens} + ${c}`,
+          errors: sql`${aiUsage.errors} + ${err}`,
+          updatedAt: now,
+        },
+      })
+      .run();
+  } catch {
+    /* 埋点失败不影响主流程 */
+  }
+}
+
 /**
  * 构造请求变体序列，前面的失败（4xx）自动退到变体重试：
  *  - deepseek（v4+ 默认开启思考模式）：先传 thinking={type:disabled} 关思考，节省 token 与延迟；
@@ -109,27 +140,86 @@ export async function chatCompletion(cfg: AiConfigInput, opts: ChatOptions): Pro
           // thinking 等厂商扩展字段不在 SDK 类型里，按变体透传
           ...(variants[i] as any),
         } as any,
-        { timeout: timeoutMs }
+        { timeout: timeoutMs, signal: opts.signal }
       );
       break;
     } catch (e: any) {
       lastError = e;
       // 只有 4xx（参数不受支持等）才降级重试；网络/5xx 直接抛
-      if (!(typeof e?.status === "number" && e.status >= 400 && e.status < 500)) throw toAiError(e);
+      if (!(typeof e?.status === "number" && e.status >= 400 && e.status < 500)) {
+        recordUsage(model, { error: true });
+        throw toAiError(e);
+      }
     }
   }
-  if (!res) throw toAiError(lastError);
+  if (!res) {
+    recordUsage(model, { error: true });
+    throw toAiError(lastError);
+  }
 
   const msg = res?.choices?.[0]?.message;
   const content = msg?.content;
   if (typeof content !== "string" || !content.trim()) {
+    recordUsage(model, { error: true });
     const finish = res?.choices?.[0]?.finish_reason;
     if (finish === "length") throw new AiError("输出被截断：max_tokens 太小，请调大后再试");
     const reasoning = typeof msg?.reasoning_content === "string" ? msg.reasoning_content.trim() : "";
     if (reasoning) throw new AiError("模型未输出内容（思考/推理被截断，请调大 max_tokens）");
     throw new AiError("模型未返回内容");
   }
+  recordUsage(model, {
+    prompt: res?.usage?.prompt_tokens,
+    completion: res?.usage?.completion_tokens,
+  });
   return content.trim();
+}
+
+/**
+ * 流式补全：逐段产出文本增量（OpenAI 兼容 stream:true），供笔记编辑器 AI 续写等场景。
+ * 4xx 仍按变体降级重试；流中断/异常直接抛错（不重试，避免重复插入）。
+ * 用量埋点：只计调用次数（流式 usage 各厂商支持不一，不采集 token）。
+ */
+export async function* streamChatCompletion(cfg: AiConfigInput, opts: ChatOptions): AsyncGenerator<string> {
+  const model = (cfg.model || "").trim();
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+  const client = getClient(cfg, timeoutMs);
+  const variants = requestVariants(cfg, opts, timeoutMs);
+  let lastError: any = null;
+
+  for (let i = 0; i < variants.length; i++) {
+    let stream: AsyncIterable<any>;
+    try {
+      stream = (await client.chat.completions.create(
+        {
+          model,
+          messages: opts.messages,
+          temperature: opts.temperature ?? 0.4,
+          max_tokens: opts.maxTokens ?? 4096,
+          stream: true,
+          ...(variants[i] as any),
+        } as any,
+        { timeout: timeoutMs, signal: opts.signal }
+      )) as unknown as AsyncIterable<any>;
+    } catch (e: any) {
+      lastError = e;
+      if (typeof e?.status === "number" && e.status >= 400 && e.status < 500) continue;
+      recordUsage(model, { error: true });
+      throw toAiError(e);
+    }
+    try {
+      for await (const part of stream) {
+        const delta = part?.choices?.[0]?.delta?.content;
+        if (typeof delta === "string" && delta) yield delta;
+      }
+      recordUsage(model, {});
+      return;
+    } catch (e: any) {
+      recordUsage(model, { error: true });
+      throw toAiError(e);
+    }
+  }
+  recordUsage(model, { error: true });
+  throw toAiError(lastError);
 }
 
 /** 解析模型返回的 JSON（容忍 ```json 围栏与前后杂文本，按首个 [ 或 { 截取到对应闭括号） */

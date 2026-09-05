@@ -31,6 +31,11 @@ interface RagState {
   embeddingHint: string;
 }
 
+interface UsageState {
+  summary: { calls: number; promptTokens: number; completionTokens: number; errors: number };
+  rows: { date: string; model: string; calls: number; promptTokens: number; completionTokens: number; errors: number }[];
+}
+
 const API_MODE_OPTIONS = [
   { key: "responses", label: "Responses API（推荐，Agent/工具友好）" },
   { key: "chat", label: "Chat Completions（仅兼容该协议的服务商）" },
@@ -65,6 +70,9 @@ export default function AiSettingsCard() {
   const [rerankEnabled, setRerankEnabled] = useState(false);
   const [rerankModel, setRerankModel] = useState("");
   const [savingRag, setSavingRag] = useState(false);
+
+  // 用量统计
+  const [usage, setUsage] = useState<UsageState | null>(null);
 
   const load = async () => {
     try {
@@ -110,8 +118,17 @@ export default function AiSettingsCard() {
     }
   };
 
+  const loadUsage = async () => {
+    try {
+      setUsage(await api<UsageState>("/api/ai-usage"));
+    } catch {
+      /* 用量展示失败不打扰用户 */
+    }
+  };
+
   useEffect(() => {
     load();
+    loadUsage();
   }, []);
 
   // 已保存配置按服务商 key 索引
@@ -495,6 +512,37 @@ export default function AiSettingsCard() {
             </div>
           </div>
         </>
+      )}
+
+      {usage && usage.summary.calls + usage.summary.errors > 0 && (
+        <div className="border-t pt-4 mt-4">
+          <div className="flex items-center justify-between flex-wrap gap-1">
+            <span className="text-sm font-bold">用量统计（近 30 天）</span>
+            <span className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+              调用 {usage.summary.calls} 次 · 输入 {usage.summary.promptTokens.toLocaleString()} / 输出{" "}
+              {usage.summary.completionTokens.toLocaleString()} tokens
+              {usage.summary.errors > 0 && ` · 失败 ${usage.summary.errors} 次`}
+            </span>
+          </div>
+          <div className="mt-2 max-h-40 overflow-y-auto">
+            {usage.rows.map((r) => (
+              <div
+                key={`${r.date}|${r.model}`}
+                className="flex items-center gap-3 text-xs py-1 border-b last:border-b-0"
+                style={{ borderColor: "var(--animal-border-color-light)" }}
+              >
+                <span className="w-24 shrink-0">{r.date}</span>
+                <span className="flex-1 min-w-0 truncate" title={r.model}>
+                  {r.model}
+                </span>
+                <span className="shrink-0" style={{ color: "var(--animal-text-color-secondary)" }}>
+                  {r.calls} 次 · {r.promptTokens.toLocaleString()} / {r.completionTokens.toLocaleString()}
+                  {r.errors > 0 && ` · 失败 ${r.errors}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

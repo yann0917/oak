@@ -15,6 +15,8 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 interface NoteDetail {
   id: number;
   title: string;
+  kind: "mistake" | "article";
+  contentFormat: "doc" | "markdown";
   source: string;
   tags: string[];
   notebookName: string;
@@ -69,8 +71,9 @@ export default function NoteDetailPage() {
     return <div className="text-center py-16 text-sm text-secondary">加载中…</div>;
   }
 
+  const isArticle = note.kind === "article";
   let content: JSONContent = { type: "doc", content: [] };
-  if (note.content) {
+  if (!isArticle && note.content) {
     try {
       content = JSON.parse(note.content) as JSONContent;
     } catch {}
@@ -84,6 +87,7 @@ export default function NoteDetailPage() {
           {note.title}
         </h1>
         {note.notebookName && <Tag size="small" color="app-teal">{note.notebookName}</Tag>}
+        {note.kind === "article" && <Tag size="small" variant="soft" color="app-blue">文章随笔</Tag>}
         {note.state !== null && (
           <Tag size="small" variant="soft" color={isDue ? "app-red" : "app-green"}>
             {STATE_LABEL[note.state] ?? "新卡"} · 已复习 {note.reps} 次
@@ -100,7 +104,7 @@ export default function NoteDetailPage() {
         </div>
       )}
 
-      {note.question.trim() && (
+      {!isArticle && note.question.trim() && (
         <Card className="p-4">
           <div className="text-xs font-bold mb-2" style={{ color: "var(--animal-text-color-secondary)" }}>
             卡片正面
@@ -108,7 +112,7 @@ export default function NoteDetailPage() {
           <MathMd text={note.question} />
         </Card>
       )}
-      {note.answer.trim() && (
+      {!isArticle && note.answer.trim() && (
         <Card className="p-4">
           <div className="text-xs font-bold mb-2" style={{ color: "var(--animal-text-color-secondary)" }}>
             卡片背面
@@ -117,7 +121,13 @@ export default function NoteDetailPage() {
         </Card>
       )}
 
-      {content.content?.length ? (
+      {isArticle ? (
+        note.content.trim() ? (
+          <Card className="p-4">
+            <MathMd text={note.content} className="text-sm leading-7" />
+          </Card>
+        ) : null
+      ) : content.content?.length ? (
         <Card className="p-4">
           <div className="text-xs font-bold mb-2" style={{ color: "var(--animal-text-color-secondary)" }}>
             正文
@@ -127,11 +137,13 @@ export default function NoteDetailPage() {
       ) : null}
 
       <div className="flex flex-wrap gap-3 pt-1">
-        <Link href={isDue ? "/review" : `#`}>
-          <Button type="primary" disabled={!isDue}>
-            {isDue ? "去复习（今天到期）" : `下次复习：${note.due ? new Date(note.due).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "未安排"}`}
-          </Button>
-        </Link>
+        {!isArticle && (
+          <Link href={isDue ? "/review" : `#`}>
+            <Button type="primary" disabled={!isDue}>
+              {isDue ? "去复习（今天到期）" : `下次复习：${note.due ? new Date(note.due).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "未安排"}`}
+            </Button>
+          </Link>
+        )}
         <Link href={`/notes/${note.id}/edit`}>
           <Button>编辑</Button>
         </Link>

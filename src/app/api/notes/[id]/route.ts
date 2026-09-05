@@ -70,6 +70,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     .set({
       notebookId,
       title,
+      // kind/content_format 创建时固定（错题=TipTap JSON，文章=markdown），编辑只更新正文
       content: typeof body.content === "string" ? body.content : existing.content,
       question: body.question !== undefined ? String(body.question) : existing.question,
       answer: body.answer !== undefined ? String(body.answer) : existing.answer,
@@ -84,8 +85,8 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
     .where(eq(notes.id, existing.id))
     .returning()
     .get();
-  // 首次保存补卡；启用状态变化不影响已有卡（调度只在队列过滤时看 enabled）
-  createCardIfAbsent(row.id, auth.user.id);
+  // 首次保存补卡（文章随笔不进复习队列）；启用状态变化不影响已有卡（调度只在队列过滤时看 enabled）
+  if (row.kind !== "article") createCardIfAbsent(row.id, auth.user.id);
   return NextResponse.json(withTags(row));
 }
 

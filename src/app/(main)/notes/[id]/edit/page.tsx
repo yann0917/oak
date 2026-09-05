@@ -18,6 +18,8 @@ interface Notebook {
 interface NoteDetail {
   id: number;
   title: string;
+  kind: "mistake" | "article";
+  contentFormat: "doc" | "markdown";
   notebookId: number | null;
   source: string;
   tags: string[];
@@ -41,6 +43,11 @@ export default function EditNotePage() {
     ])
       .then(([nbs, n]) => {
         setNotebooks(nbs);
+        if (n.kind === "article") {
+          // 文章随笔：content 即 markdown 源文本，原样传给表单
+          setNote({ ...n, content: n.content || "" });
+          return;
+        }
         let content: JSONContent = { type: "doc", content: [] };
         try {
           content = JSON.parse(n.content || "") as JSONContent;
@@ -63,10 +70,13 @@ export default function EditNotePage() {
   if (!note) {
     return <div className="text-center py-16 text-sm text-secondary">加载中…</div>;
   }
+  const isArticle = note.kind === "article";
   let parsed: JSONContent = { type: "doc", content: [] };
-  try {
-    parsed = JSON.parse(note.content) as JSONContent;
-  } catch {}
+  if (!isArticle) {
+    try {
+      parsed = JSON.parse(note.content) as JSONContent;
+    } catch {}
+  }
 
   return (
     <div className="space-y-4">
@@ -77,6 +87,7 @@ export default function EditNotePage() {
         noteId={note.id}
         notebooks={notebooks}
         initial={{
+          kind: note.kind,
           title: note.title,
           notebookId: note.notebookId,
           source: note.source,
@@ -84,7 +95,7 @@ export default function EditNotePage() {
           enabled: !!note.enabled,
           question: note.question,
           answer: note.answer,
-          content: parsed,
+          content: isArticle ? note.content : parsed,
         }}
       />
     </div>
