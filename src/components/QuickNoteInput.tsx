@@ -188,12 +188,10 @@ export default function QuickNoteInput({
           ))}
         </div>
       )}
-      <div className="flex items-center justify-between gap-3 mt-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[11px]" style={{ color: "var(--animal-text-color-secondary)" }}>
-            支持：健康 / 账单 / 成长 / 时光 / 学习 / 提醒 / 待办 / 政策 · Enter 提交，Shift+Enter 换行
-          </span>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
+        <span className="text-[11px] flex-1 min-w-40" style={{ color: "var(--animal-text-color-secondary)" }}>
+          支持：健康 / 账单 / 成长 / 时光 / 学习 / 提醒 / 待办 / 政策 · Enter 提交，Shift+Enter 换行
+        </span>
         <div className="flex items-center gap-2 shrink-0">
           <input
             ref={fileRef}

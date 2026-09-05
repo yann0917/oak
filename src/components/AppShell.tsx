@@ -201,7 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div
-          className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
+          className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ${
             sidebarCollapsed ? "md:ml-[76px]" : "md:ml-[240px]"
           }`}
         >
