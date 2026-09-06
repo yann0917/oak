@@ -1,4 +1,6 @@
-/** 账单类型与方向选项：账单页表单与 AI 快记分流共用，不含服务端依赖 */
+/** 账单类型与方向选项：账单页表单与 AI 快记分流共用，不含服务端运行时依赖 */
+import type { TagColor } from "animal-island-ui";
+
 /** 类型对齐支付宝账单分类（截图参照），另保留学费/餐费/校车费三个学校专属类；排除纯支付机制类（信用借还/亲友代付/账户存取/退款） */
 export const BILL_TYPES = [
   // 教育相关（本应用核心场景）
@@ -42,7 +44,7 @@ export const BILL_DIRECTIONS = ["支出", "收入"];
 
 export const BILL_STATUSES = ["已缴", "未缴"];
 
-export const BILL_TYPE_COLOR: Record<string, string> = {
+export const BILL_TYPE_COLOR: Record<string, TagColor> = {
   学费: "app-blue",
   餐费: "app-orange",
   校车费: "purple",

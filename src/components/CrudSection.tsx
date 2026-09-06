@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { Button, Card, DatePicker, Image, Input, Modal, Pagination, Select, Tag } from "animal-island-ui";
+import type { TagColor } from "animal-island-ui";
 import { Notification } from "@/lib/toast";
 import { api, OptionItem } from "@/lib/api";
 import { PhotoUploader } from "./PhotoUploader";
@@ -20,7 +21,7 @@ export interface FieldDef {
   /** select 选项的显示文案映射（key 为字段值） */
   optionLabels?: Record<string, string>;
   /** options 网格选项选中态的配色映射（key 为选项值，取 animal-island 色板 token） */
-  optionColors?: Record<string, string>;
+  optionColors?: Record<string, TagColor>;
   /** 从外部数据源取选项（如学校列表） */
   refList?: "schools" | "teachers" | "semesters";
   required?: boolean;
