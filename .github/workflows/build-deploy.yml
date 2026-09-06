@@ -1,9 +1,17 @@
 # 推送 main 后自动构建 standalone 独立部署包并部署到 /opt/oak ，
 # 也可在 Actions 页面手动触发（workflow_dispatch）。
 #
-# 部署包内容：server.js + 裁剪版 node_modules + .next（含 static）+ public
+# 部署包内容：server.js + 裁剪版 node_modules + .next（含 static）+ public + ecosystem.config.js
 # 注意：部署包不含 data/、uploads/（用户数据不进制品）。
 # 制品 oak-dist 仍会上传保留 14 天，用于回滚或手动下载。
+#
+# 服务以 pm2 常驻（启动命令 pm2-runtime，进程守护/崩溃自愈），每次部署解压完
+# 自动 pm2 reload 使新版本生效，不再需要手动重启 Docker。
+# 服务器侧一次性准备（OAK_USER 执行，Node >= 22）：
+#   docker stop <原容器名>                                  # 停掉 Docker 方式，避免端口占用
+#   npm i -g pm2
+#   cd /opt/oak && pm2-runtime start ecosystem.config.js   # 前台拉起，进程名 oak
+# 常驻保活建议交给 systemd 托管 pm2-runtime（开机自启 + 崩溃自动拉起）。
 #
 # 需要在仓库 Settings → Secrets and variables → Actions 配置：
 #   OAK_HOST            服务器地址（IP 或域名）
@@ -64,6 +72,8 @@ jobs:
             tsconfig.json tsconfig.tsbuildinfo \
             package-lock.json skills-lock.json \
             src scripts images
+          # pm2 进程配置随包分发：pm2-runtime 首次启动与 pm2 reload 共用仓库根的同一份
+          cp ecosystem.config.js .next/standalone/
           tar -czf oak-dist.tar.gz -C .next/standalone .
           du -sh oak-dist.tar.gz
 
@@ -74,7 +84,7 @@ jobs:
           path: oak-dist.tar.gz
           retention-days: 14
 
-      - name: 上传并解压到 /opt/oak
+      - name: 上传解压并重启服务
         run: |
           set -euo pipefail
           : "${OAK_HOST:?缺少 OAK_HOST secret}"
@@ -105,4 +115,21 @@ jobs:
 
           ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" 'mkdir -p /opt/oak'
           scp "${SSH_OPTS[@]}" -P "${SSH_PORT}" oak-dist.tar.gz "${OAK_USER}@${OAK_HOST}:/opt/oak/oak-dist.tar.gz"
-          ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" 'set -e; cd /opt/oak && rm -rf .next node_modules server.js public && tar -xzf oak-dist.tar.gz && test -f server.js && test -d .next/static && echo "部署完成，/opt/oak 当前内容：" && ls -la'
+
+          # 解压后立即用 pm2 平滑重启（fork 模式 reload 等价 restart），新版本即生效
+          ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" '
+            set -e
+            export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+            cd /opt/oak
+            rm -rf .next node_modules server.js public
+            tar -xzf oak-dist.tar.gz
+            test -f server.js && test -d .next/static
+            echo "部署完成，/opt/oak 当前内容："
+            ls -la
+            if pm2 reload oak --update-env; then
+              echo "pm2 reload 完成，新版本已生效"
+            else
+              echo "::error::pm2 reload 失败：未找到 oak 进程或 pm2 未安装。首次迁移请在服务器执行: cd /opt/oak && pm2-runtime start ecosystem.config.js"
+              exit 1
+            fi
+          '

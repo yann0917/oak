@@ -180,19 +180,22 @@ GitHub Actions（`.github/workflows/build-deploy.yml`）负责 **构建 + 部署
 应用目录是「单目录覆盖式」升级：`data/`、`uploads/` 放在应用目录内，每次解压只覆盖程序文件，数据天然保留，无需软链接。
 
 ```bash
+# 前置：安装 pm2（需 Node.js 22+，AI 功能依赖）
+npm i -g pm2
+
 # 首次部署
 sudo mkdir -p /opt/oak && cd /opt/oak
 # 把 oak-dist.tar.gz 传到 /opt/oak 后：
-tar -xzf oak-dist.tar.gz     # 解压出 server.js、node_modules、.next、public
-node server.js               # 前台运行；后台运行：nohup node server.js > oak.log 2>&1 &
+tar -xzf oak-dist.tar.gz     # 解压出 server.js、node_modules、.next、public、ecosystem.config.js
+pm2-runtime start ecosystem.config.js   # 前台运行（进程名 oak）；常驻建议用 systemd 托管该命令
 
 # 以后每次更新：新的 oak-dist.tar.gz 传到 /opt/oak 后
-cd /opt/oak && tar -xzf oak-dist.tar.gz                    # 覆盖程序文件
-pkill -f "node server.js"; nohup node server.js > oak.log 2>&1 &   # 重启
+cd /opt/oak && tar -xzf oak-dist.tar.gz   # 覆盖程序文件
+pm2 reload oak --update-env               # 平滑重启生效（GitHub Actions 部署会自动执行）
 ```
 
-- `data/`、`uploads/` 由应用自动创建；改端口用 `PORT=8080 node server.js`
-- 回滚：每次的 `oak-dist.tar.gz` 就是版本备份，解压旧包 + 重启进程即可
+- `data/`、`uploads/` 由应用自动创建；改端口在 `ecosystem.config.js` 的 `env` 里加 `PORT: 8080`
+- 回滚：每次的 `oak-dist.tar.gz` 就是版本备份，解压旧包 + `pm2 reload oak` 即可
 - 公网部署建议 Nginx 反向代理并启用 HTTPS（系统含登录认证，务必走 HTTPS）
 - 数据库结构与默认账号在应用启动时自动幂等迁移，更新不会影响已有数据
 
