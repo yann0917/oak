@@ -42,7 +42,7 @@ const SYSTEM_PROMPT = `你是家庭记录管家，负责把用户的一句话（
 
 目标模块 type 只能是以下之一：${QUICK_TYPES.join("|")}
 - health（健康档案）：体检、疫苗、用药、生病、发烧、过敏等。fields: { "healthType": "体检|疫苗|用药|病历", "detail": "补充说明" }
-- fee（账单）：交学费、电费、打车、买药、购物、收红包等收支。fields: { "feeType": "学费|餐费|校车费|兴趣班|医疗|购物|交通|水电|生活费|收入|其他", "direction": "支出|收入", "amount": 金额数字(元), "organization": "收款单位或留空", "status": "已缴|未缴" }
+- fee（账单）：交学费、电费、打车、买药、购物、收红包等收支。fields: { "feeType": "学费|餐费|校车费|教育培训|保险|医疗|购物|交通|水电|生活费|收入|其他", "direction": "支出|收入", "amount": 金额数字(元), "organization": "收款单位或留空", "status": "已缴|未缴" }
 - growth（成长）：身高、体重等。fields: { "height": 身高数字(cm)或null, "weight": 体重数字(kg)或null }
 - moment（时光）：值得记住的瞬间、开心好玩的事。fields: { "tags": "逗号分隔的标签" }
 - learning（学习）：考试、成绩、作业、上课表现。fields: { "subject": "科目", "grade": "分数/评级", "evaluation": "great|good|ok|poor 或空", "content": "详细描述" }
@@ -159,7 +159,7 @@ export function normalizeIntent(raw: any): QuickIntent {
     case "fee":
       fields.feeType = oneOf(
         f.feeType,
-        ["学费", "餐费", "校车费", "兴趣班", "医疗", "购物", "交通", "水电", "生活费", "收入", "其他"],
+        ["学费", "餐费", "校车费", "教育培训", "保险", "医疗", "购物", "交通", "水电", "生活费", "收入", "其他"],
         "其他"
       );
       fields.direction = oneOf(f.direction, ["支出", "收入"], "支出");

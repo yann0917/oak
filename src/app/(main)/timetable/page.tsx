@@ -311,12 +311,12 @@ export default function TimetablePage() {
                       return (
                         <td
                           key={d}
-                          className="align-top"
+                          className="h-px align-top"
                         >
                           {cell.length === 0 ? (
                             <button
                               onClick={() => openAdd(d, p)}
-                              className="w-full rounded-xl text-lg leading-none py-3 cursor-pointer transition-all"
+                              className="h-full w-full min-h-[46px] rounded-xl text-lg leading-none py-3 cursor-pointer transition-all"
                               style={{
                                 border: "2px dashed var(--animal-border-color-light)",
                                 color: "var(--animal-text-color-disabled)",
@@ -329,7 +329,7 @@ export default function TimetablePage() {
                           ) : (
                             <button
                               onClick={() => openEdit(cell[0])}
-                              className="w-full text-left px-2.5 py-2 rounded-xl cursor-pointer transition-all hover:-translate-y-0.5"
+                              className="h-full w-full min-h-[46px] text-left px-2.5 py-2 rounded-xl cursor-pointer transition-all hover:-translate-y-0.5"
                               style={{
                                 background: "var(--animal-primary-color-bg)",
                                 border: "2px solid var(--animal-primary-color)",

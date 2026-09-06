@@ -234,7 +234,7 @@ export const bills = sqliteTable("bills", {
   userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   title: text("title").notNull(),
-  type: text("type").notNull().default("学费"), // 学费|餐费|校车费|兴趣班|医疗|购物|交通|水电|生活费|收入|其他
+  type: text("type").notNull().default("学费"), // 学费|餐费|校车费|教育培训|保险|医疗|购物|交通|水电|生活费|收入|其他
   direction: text("direction").notNull().default("支出"), // 支出|收入
   amount: real("amount").notNull().default(0), // 元
   date: text("date").notNull().default(""), // 收支日期

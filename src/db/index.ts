@@ -638,6 +638,9 @@ DROP TABLE fee_records;
 `);
 }
 
+// ===== 账单类型改名迁移（幂等）：兴趣班 → 教育培训 =====
+sqlite.exec("UPDATE bills SET type = '教育培训' WHERE type = '兴趣班'");
+
 // ===== 提醒中心多用户迁移：旧库（无 user_id 概念）补齐并按首个账号回填 =====
 // 首个账号（种子 admin）之外的旧数据均归属该账号
 const firstUserId = (sqlite.prepare("SELECT id FROM users ORDER BY id LIMIT 1").get() as any)?.id ?? 1;

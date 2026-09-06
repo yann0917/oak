@@ -288,7 +288,7 @@ export function buildAgentTools(uid: number, opts: { searchApiKey?: string } = {
       z.object({
         ...common,
         direction: z.string().optional().describe("收支方向：支出/收入"),
-        type: z.string().optional().describe("账单类型：学费/餐费/校车费/兴趣班/医疗/购物/交通/水电/生活费/收入/其他"),
+        type: z.string().optional().describe("账单类型：学费/餐费/校车费/教育培训/保险/医疗/购物/交通/水电/生活费/收入/其他"),
         status: z.string().optional().describe("缴费状态：已缴/未缴"),
       }),
       async ({ childId, startDate, endDate, direction, type, status, limit }) => {
