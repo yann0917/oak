@@ -171,7 +171,7 @@ npm start        # 访问 http://localhost:3000
 
 ## 部署到服务器
 
-GitHub Actions（`.github/workflows/build-deploy.yml`）负责 **构建 + 部署**：推送 `main` 分支（或在 Actions 页面手动触发）后自动构建 **standalone 独立部署包**（自带按需裁剪的 node_modules，压缩包约 65MB）并 scp 到服务器 `/opt/oak/` 解压覆盖，**服务器上不执行 npm install**。同时仍会上传 `oak-dist` 制品（保留 14 天）用于回滚或手动下载（`gh run download -n oak-dist`）。
+GitHub Actions（`.github/workflows/build-deploy.yml`）负责 **构建 + 部署**：推送 `main` 分支（或在 Actions 页面手动触发）后自动构建 **standalone 独立部署包**（自带按需裁剪的 node_modules，压缩包约 65MB）并 scp 到服务器 `/opt/oak/` 解压覆盖、自动 `pm2 reload` 生效，**服务器上不执行 npm install**。构建产物同时上传为 `oak-dist` 制品：**部署成功后自动删除**（省存储额度），**部署失败时保留 14 天**，可 `gh run download -n oak-dist` 下载排查。
 
 > **服务器系统要求：Ubuntu 22.04+ / Debian 12+**。better-sqlite3 的预编译模块需要 glibc ≥ 2.34（Ubuntu 20.04 的 2.31、CentOS 7 的 2.17 都不满足），Node 22 官方包也要求 glibc ≥ 2.28。服务器另需 Node.js 20.9+。
 
@@ -195,7 +195,7 @@ pm2 reload oak --update-env               # 平滑重启生效（GitHub Actions 
 ```
 
 - `data/`、`uploads/` 由应用自动创建；改端口在 `ecosystem.config.js` 的 `env` 里加 `PORT: 8080`
-- 回滚：每次的 `oak-dist.tar.gz` 就是版本备份，解压旧包 + `pm2 reload oak` 即可
+- 回滚：checkout 到历史 commit 重新构建部署即可（推送 main 或手动触发，全自动）；历史部署包不做留存
 - 公网部署建议 Nginx 反向代理并启用 HTTPS（系统含登录认证，务必走 HTTPS）
 - 数据库结构与默认账号在应用启动时自动幂等迁移，更新不会影响已有数据
 
