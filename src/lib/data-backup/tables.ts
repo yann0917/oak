@@ -202,8 +202,9 @@ export const BACKUP_TABLES: BackupTableDef[] = [
     { field: "organization", label: "收费单位" },
     { field: "status", label: "状态" },
     { field: "notes", label: "备注" },
+    { field: "tags", label: "标签" },
     { field: "attachments", label: "凭证" },
-  ], { refs: [{ column: "childId", refTable: "children" }, { column: "semesterId", refTable: "semesters" }], jsonCols: ["attachments"] }),
+  ], { refs: [{ column: "childId", refTable: "children" }, { column: "semesterId", refTable: "semesters" }], jsonCols: ["attachments", "tags"] }),
   tbl("cert_archives", "卡证档案", certArchives, [
     { field: "childId", label: "成员" },
     { field: "category", label: "类别" },

@@ -641,6 +641,13 @@ DROP TABLE fee_records;
 // ===== 账单类型改名迁移（幂等）：兴趣班 → 教育培训 =====
 sqlite.exec("UPDATE bills SET type = '教育培训' WHERE type = '兴趣班'");
 
+// ===== 账单类型对齐支付宝分类（幂等）：旧通用类型改名归入新类 =====
+sqlite.exec("UPDATE bills SET type = '交通出行' WHERE type = '交通'");
+sqlite.exec("UPDATE bills SET type = '医疗健康' WHERE type = '医疗'");
+sqlite.exec("UPDATE bills SET type = '日用百货' WHERE type = '购物'");
+sqlite.exec("UPDATE bills SET type = '充值缴费' WHERE type = '水电'");
+ensureColumn("bills", "tags", "TEXT NOT NULL DEFAULT '[]'");
+
 // ===== 提醒中心多用户迁移：旧库（无 user_id 概念）补齐并按首个账号回填 =====
 // 首个账号（种子 admin）之外的旧数据均归属该账号
 const firstUserId = (sqlite.prepare("SELECT id FROM users ORDER BY id LIMIT 1").get() as any)?.id ?? 1;

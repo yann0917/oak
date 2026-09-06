@@ -142,7 +142,7 @@ export default function BillsPage() {
         <MemberFilter value={memberId} onChange={setMemberId} className="w-44" />
       </div>
       <p className="text-sm mt-3 mb-3" style={{ color: "var(--animal-text-color-secondary)" }}>
-        记录学费、餐费、医疗、购物等各类收支，支持凭证照片
+        记录家庭各类收支，支持凭证照片与自定义标签
       </p>
 
       {/* 期间筛选：粒度 + 前后切换 + 回今天 */}
@@ -296,13 +296,14 @@ export default function BillsPage() {
         fields={[
           { name: "title", label: "项目", required: true, placeholder: "如：2026秋季学费 / 交电费" },
           { name: "direction", label: "收支方向", type: "select", options: BILL_DIRECTIONS, defaultValue: "支出" },
-          { name: "type", label: "类型", type: "select", options: BILL_TYPES, defaultValue: "学费" },
+          { name: "type", label: "类型", type: "options", options: BILL_TYPES, optionColors: BILL_TYPE_COLOR, defaultValue: "学费" },
           { name: "amount", label: "金额（元）", type: "number", required: true },
           { name: "status", label: "状态", type: "select", options: BILL_STATUSES, defaultValue: "已缴" },
           { name: "date", label: "收支日期", type: "date", defaultValue: fmtDate(new Date()) },
           { name: "semesterId", label: "所属学期", type: "select", refList: "semesters" },
           { name: "organization", label: "收款单位" },
           { name: "notes", label: "备注", type: "textarea" },
+          { name: "tags", label: "标签", type: "tags", placeholder: "自定义，如：报销" },
           { name: "attachments", label: "凭证照片", type: "photos" },
         ]}
         renderItem={(item, actions) => {
@@ -338,6 +339,15 @@ export default function BillsPage() {
                 <p className="text-sm mt-1.5 whitespace-pre-wrap" style={{ color: "var(--animal-text-color-secondary)" }}>
                   {item.notes}
                 </p>
+              )}
+              {parseJsonArray(item.tags).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {parseJsonArray(item.tags).map((t: string) => (
+                    <Chip key={t} color="default">
+                      {t}
+                    </Chip>
+                  ))}
+                </div>
               )}
               <PhotoGrid photos={parseJsonArray(item.attachments)} />
             </div>

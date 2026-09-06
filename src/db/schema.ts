@@ -234,7 +234,7 @@ export const bills = sqliteTable("bills", {
   userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
   childId: integer("child_id").notNull(),
   title: text("title").notNull(),
-  type: text("type").notNull().default("学费"), // 学费|餐费|校车费|教育培训|保险|医疗|购物|交通|水电|生活费|收入|其他
+  type: text("type").notNull().default("学费"), // 枚举见 src/lib/bills.ts BILL_TYPES（对齐支付宝分类）
   direction: text("direction").notNull().default("支出"), // 支出|收入
   amount: real("amount").notNull().default(0), // 元
   date: text("date").notNull().default(""), // 收支日期
@@ -242,6 +242,7 @@ export const bills = sqliteTable("bills", {
   organization: text("organization").notNull().default(""), // 收费单位
   status: text("status").notNull().default("已缴"), // 已缴|未缴
   notes: text("notes").notNull().default(""),
+  tags: text("tags").notNull().default("[]"), // 自定义标签，JSON 字符串数组
   attachments: text("attachments").notNull().default("[]"), // 凭证照片
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });

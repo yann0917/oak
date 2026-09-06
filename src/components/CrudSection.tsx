@@ -15,10 +15,12 @@ export type { OptionItem } from "@/lib/api";
 export interface FieldDef {
   name: string;
   label: string;
-  type?: "text" | "number" | "textarea" | "date" | "select" | "photos" | "avatar";
+  type?: "text" | "number" | "textarea" | "date" | "select" | "options" | "tags" | "photos" | "avatar";
   options?: string[];
   /** select 选项的显示文案映射（key 为字段值） */
   optionLabels?: Record<string, string>;
+  /** options 网格选项选中态的配色映射（key 为选项值，取 animal-island 色板 token） */
+  optionColors?: Record<string, string>;
   /** 从外部数据源取选项（如学校列表） */
   refList?: "schools" | "teachers" | "semesters";
   required?: boolean;
@@ -106,7 +108,7 @@ export function CrudSection({
   const openCreate = () => {
     const init: Record<string, any> = {};
     for (const f of fields) {
-      init[f.name] = f.type === "photos" ? [] : f.defaultValue ?? "";
+      init[f.name] = f.type === "photos" || f.type === "tags" ? [] : f.defaultValue ?? "";
     }
     if (allMembersMode) init.childId = "";
     setForm(init);
@@ -119,7 +121,7 @@ export function CrudSection({
     const init: Record<string, any> = {};
     for (const f of fields) {
       const raw = item[f.name];
-      if (f.type === "photos") {
+      if (f.type === "photos" || f.type === "tags") {
         let arr = raw;
         if (typeof raw === "string") {
           try {
@@ -148,7 +150,7 @@ export function CrudSection({
       const payload: Record<string, any> = {};
       for (const f of fields) {
         payload[f.name] = form[f.name];
-        if (f.type === "photos") payload[f.name] = JSON.stringify(form[f.name] ?? []);
+        if (f.type === "photos" || f.type === "tags") payload[f.name] = JSON.stringify(form[f.name] ?? []);
         if (f.type === "number" && form[f.name] !== "" && form[f.name] != null) {
           payload[f.name] = Number(form[f.name]);
         }
@@ -296,7 +298,7 @@ export function CrudSection({
           {fields.map((f) => (
             <div
               key={f.name}
-              className={f.full || f.type === "textarea" || f.type === "photos" || f.type === "avatar" ? "sm:col-span-2" : ""}
+              className={f.full || f.type === "textarea" || f.type === "photos" || f.type === "avatar" || f.type === "options" || f.type === "tags" ? "sm:col-span-2" : ""}
             >
               <label className="block text-sm mb-1.5" style={{ color: "var(--animal-text-color-secondary)" }}>
                 {f.label}
@@ -348,6 +350,35 @@ export function CrudSection({
                   placeholder={f.placeholder || "选择日期"}
                   allowClear
                   onChange={(v) => setForm({ ...form, [f.name]: typeof v === "string" ? v : "" })}
+                />
+              ) : f.type === "options" ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {(f.options ?? []).map((opt) => {
+                    const active = form[f.name] === opt;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        aria-pressed={active}
+                        className="bg-transparent border-0 p-0 leading-none cursor-pointer transition-transform duration-150 hover:scale-105"
+                        onClick={() => setForm({ ...form, [f.name]: opt })}
+                      >
+                        <Tag
+                          size="small"
+                          variant={active ? "solid" : "soft"}
+                          color={active ? f.optionColors?.[opt] ?? "app-blue" : "default"}
+                        >
+                          {f.optionLabels?.[opt] ?? opt}
+                        </Tag>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : f.type === "tags" ? (
+                <TagsField
+                  value={form[f.name] ?? []}
+                  onChange={(tags) => setForm({ ...form, [f.name]: tags })}
+                  placeholder={f.placeholder}
                 />
               ) : f.type === "select" ? (
                 <Select
@@ -451,5 +482,72 @@ export function Chip({ children, color = "default" }: { children: ReactNode; col
     <Tag size="small" variant="soft" color={color}>
       {children}
     </Tag>
+  );
+}
+
+/** 标签编辑：已选标签用 − 移除，输入后按 ＋（或回车）添加，去重 */
+export function TagsField({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const t = draft.trim();
+    setDraft("");
+    if (!t || value.includes(t)) return;
+    onChange([...value, t]);
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {value.map((t) => (
+        <span key={t} className="inline-flex items-center">
+          <Tag size="small" variant="soft" color="app-yellow">
+            {t}
+          </Tag>
+          <button
+            type="button"
+            aria-label={`移除标签 ${t}`}
+            className="bg-transparent border-0 p-0.5 text-xs leading-none cursor-pointer"
+            style={{ color: "var(--animal-text-color-disabled)" }}
+            onClick={() => onChange(value.filter((x) => x !== t))}
+          >
+            −
+          </button>
+        </span>
+      ))}
+      <input
+        className="text-xs px-2.5 py-1 w-28 rounded-lg outline-none"
+        placeholder={placeholder || "自定义标签"}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            add();
+          }
+        }}
+        style={{
+          border: "2px solid var(--animal-border-color-light)",
+          background: "#fff",
+          color: "var(--animal-text-color)",
+          fontFamily: "inherit",
+          fontWeight: 500,
+        }}
+      />
+      <button
+        type="button"
+        aria-label="添加标签"
+        className="bg-transparent border-0 p-1 text-base leading-none cursor-pointer"
+        style={{ color: "var(--animal-primary-color-active)" }}
+        onClick={add}
+      >
+        ＋
+      </button>
+    </div>
   );
 }
