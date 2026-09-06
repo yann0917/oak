@@ -63,7 +63,7 @@ export default function EditNotePage() {
   if (error) {
     return (
       <div className="text-center py-16 text-sm text-red-500">
-        {error}，<Link href="/notes" className="underline">返回列表</Link>
+        {error}，<Link href="/tools/notes" className="underline">返回列表</Link>
       </div>
     );
   }

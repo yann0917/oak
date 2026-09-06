@@ -52,7 +52,7 @@ export default function NoteDetailPage() {
     try {
       await api(`/api/notes/${note.id}`, { method: "DELETE" });
       Notification.success("已删除");
-      router.push("/notes");
+      router.push("/tools/notes");
     } catch (e: any) {
       Notification.error(e.message);
     } finally {
@@ -63,7 +63,7 @@ export default function NoteDetailPage() {
   if (error) {
     return (
       <div className="text-center py-16 text-sm text-red-500">
-        {error}，<Link href="/notes" className="underline">返回列表</Link>
+        {error}，<Link href="/tools/notes" className="underline">返回列表</Link>
       </div>
     );
   }
@@ -144,11 +144,11 @@ export default function NoteDetailPage() {
             </Button>
           </Link>
         )}
-        <Link href={`/notes/${note.id}/edit`}>
+        <Link href={`/tools/notes/${note.id}/edit`}>
           <Button>编辑</Button>
         </Link>
         <Button onClick={() => setConfirm(true)}>删除</Button>
-        <Link href="/notes">
+        <Link href="/tools/notes">
           <Button type="text">返回列表</Button>
         </Link>
       </div>

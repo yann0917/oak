@@ -24,7 +24,6 @@ export const menuSeedDefs: MenuSeedNode[] = [
   { type: "menu", name: "政策动态", path: "/policies", icon: "icon-chat", sort: 12 },
   { type: "menu", name: "成员管理", path: "/children", icon: "icon-miles", sort: 13 },
   { type: "menu", name: "设置", path: "/settings", icon: "icon-helicopter", sort: 14 },
-  { type: "menu", name: "错题本/笔记", path: "/notes", icon: "icon-critterpedia", sort: 16 },
   { type: "menu", name: "食谱", path: "/recipes", icon: "icon-diy", sort: 17 },
   { type: "menu", name: "关于", path: "/about", icon: "icon-map", sort: 18 },
   {
@@ -37,6 +36,7 @@ export const menuSeedDefs: MenuSeedNode[] = [
       { type: "menu", name: "白板", path: "/tools/whiteboard", icon: "icon-variant", sort: 1 },
       { type: "menu", name: "待办", path: "/tools/todo", icon: "icon-miles", sort: 2 },
       { type: "menu", name: "番茄钟", path: "/tools/timer", icon: "icon-camera", sort: 3 },
+      { type: "menu", name: "错题本/笔记", path: "/tools/notes", icon: "icon-critterpedia", sort: 6 },
     ],
   },
   {

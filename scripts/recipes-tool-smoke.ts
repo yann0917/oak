@@ -38,7 +38,18 @@ async function main() {
   const empty = (await anyTool.queryRecipes.execute({ keyword: "不存在的菜xyz", category: "汤" })) as any;
   check("空结果带分类提示", empty?.rows?.length === 0 && String(empty?.note).includes("现有分类"), empty);
 
-  // 4. 工具描述注册
+  // 4. HowToCook 源：回锅肉（荤菜）整篇返回，来源字段正确
+  const htc = (await anyTool.queryRecipes.execute({ keyword: "回锅肉", source: "howtocook" })) as any;
+  check("HowToCook 源有结果", Array.isArray(htc?.rows) && htc.rows.length > 0, htc);
+  check("HowToCook 来源字段=howtocook", htc.rows.every((r: any) => r.source === "howtocook"), htc.rows[0]);
+  check("HowToCook 分类映射为中文", htc.rows.some((r: any) => r.category === "荤菜"), htc.rows.map((r: any) => r.category));
+  check("HowToCook 图片已本地化", htc.rows.some((r: any) => r.content?.includes("/uploads/recipes/howtocook/")), htc.rows[0]?.content?.slice(0, 100));
+
+  // 5. 来源过滤：cooklikehoc 下搜可乐不应混入 HowToCook
+  const mixed = (await anyTool.queryRecipes.execute({ keyword: "肉", source: "cooklikehoc" })) as any;
+  check("按来源过滤生效", mixed?.rows?.length > 0 && mixed.rows.every((r: any) => r.source === "cooklikehoc"), mixed?.rows?.length);
+
+  // 6. 工具描述注册
   check("工具描述已注册", typeof anyTool.queryRecipes?.description === "string" && anyTool.queryRecipes.description.includes("食谱"), anyTool.queryRecipes?.description);
 }
 

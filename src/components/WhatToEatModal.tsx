@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button, Modal, Tag } from "animal-island-ui";
 import { api } from "@/lib/api";
+import { SOURCE_LABELS } from "@/lib/recipes/sources";
 
 interface SuggestPick {
   id: number;
   name: string;
   category: string;
+  source: string;
   image: string;
   reason: string;
 }
@@ -83,6 +85,9 @@ export function WhatToEatModal({ open, onClose }: { open: boolean; onClose: () =
                     </span>
                     <Tag size="small" variant="soft" color="app-yellow">
                       {p.category}
+                    </Tag>
+                    <Tag size="small" variant="soft" color="app-blue">
+                      {SOURCE_LABELS[p.source] ?? p.source}
                     </Tag>
                   </div>
                   {p.reason && <p className="text-xs text-secondary mt-1 leading-5">{p.reason}</p>}

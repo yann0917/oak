@@ -31,7 +31,11 @@ async function tick(): Promise<void> {
       clearTimeout(retryTimer);
       retryTimer = null;
     }
-    if (!summary.skipped) console.log(`[recipes] 同步完成：共 ${summary.total} 篇（新增 ${summary.added}、更新 ${summary.updated}、删除 ${summary.removed}、图片 ${summary.images} 张）`);
+    const parts = summary.sources
+      .map((s) => (s.skipped ? `${s.label} 无变化` : s.error ? `${s.label} 失败` : `${s.label} ${s.total} 篇（+${s.added}/~${s.updated}/-${s.removed}，图 ${s.images}）`))
+      .join("；");
+    const changed = summary.sources.some((s) => !s.skipped && !s.error);
+    if (changed) console.log(`[recipes] 同步完成，共 ${summary.total} 篇：${parts}`);
   } catch (e: any) {
     console.error(`[recipes] 同步失败（${e?.message ?? e}），1 小时后重试`);
     if (!retryTimer) {

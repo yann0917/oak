@@ -7,9 +7,11 @@ import { useEffect, useState } from "react";
 import { Button, Card, Tag } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { MathMd } from "@/components/MathMd";
+import { SOURCE_LABELS } from "@/lib/recipes/sources";
 
 interface RecipeDetail {
   id: number;
+  source: string;
   category: string;
   name: string;
   content: string;
@@ -49,6 +51,9 @@ export default function RecipeDetailPage() {
         </h1>
         <Tag size="small" variant="soft" color="app-yellow">
           {recipe.category}
+        </Tag>
+        <Tag size="small" variant="soft" color="app-blue">
+          {SOURCE_LABELS[recipe.source] ?? recipe.source}
         </Tag>
         <div className="ml-auto">
           <Link href="/recipes">

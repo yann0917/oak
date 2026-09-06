@@ -146,10 +146,10 @@ export default function NotesPage() {
               开始复习{dueCount > 0 ? `（${dueCount}）` : ""}
             </Button>
           </Link>
-          <Link href="/notes/new">
+          <Link href="/tools/notes/new">
             <Button size="small">录入错题</Button>
           </Link>
-          <Link href="/notes/new?kind=article">
+          <Link href="/tools/notes/new?kind=article">
             <Button size="small">写文章</Button>
           </Link>
           <Button size="small" onClick={() => setNbModal(true)}>
@@ -209,7 +209,7 @@ export default function NotesPage() {
               <div className="flex flex-wrap items-start gap-3">
                 <div className="flex-1 min-w-40">
                   <Link
-                    href={`/notes/${item.id}`}
+                    href={`/tools/notes/${item.id}`}
                     className="font-bold text-base hover:underline"
                     style={{ color: "var(--animal-text-color)" }}
                   >
@@ -238,7 +238,7 @@ export default function NotesPage() {
                       <Switch checked={!!item.enabled} onChange={() => toggleEnabled(item)} aria-label="暂停/恢复复习" />
                     </>
                   )}
-                  <Link href={`/notes/${item.id}/edit`} className="text-sm text-secondary hover:underline">
+                  <Link href={`/tools/notes/${item.id}/edit`} className="text-sm text-secondary hover:underline">
                     编辑
                   </Link>
                   <Button size="small" type="text" onClick={() => setDeleting(item)}>

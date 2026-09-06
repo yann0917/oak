@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
   const rows = db
-    .select({ id: recipes.id, category: recipes.category, name: recipes.name, image: recipes.image })
+    .select({ id: recipes.id, source: recipes.source, category: recipes.category, name: recipes.name, image: recipes.image })
     .from(recipes)
     .where(q ? or(like(recipes.name, `%${q}%`), like(recipes.content, `%${q}%`)) : undefined)
     .orderBy(recipes.category, recipes.id)

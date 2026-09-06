@@ -83,11 +83,11 @@ export function NoteForm({ noteId, initial, notebooks }: NoteFormProps) {
       if (noteId) {
         await api(`/api/notes/${noteId}`, { method: "PUT", body });
         Notification.success("已保存");
-        router.push(`/notes/${noteId}`);
+        router.push(`/tools/notes/${noteId}`);
       } else {
         const created = await api<{ id: number }>("/api/notes", { method: "POST", body });
         Notification.success(isArticle ? "已保存文章" : "已录入，加入复习队列");
-        router.push(`/notes/${created.id}`);
+        router.push(`/tools/notes/${created.id}`);
       }
     } catch (e: any) {
       Notification.error(e.message);

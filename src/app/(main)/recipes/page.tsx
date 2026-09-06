@@ -3,12 +3,13 @@
 // 食谱库：上游《像老乡鸡那样做饭》（GitHub CookLikeHOC）定期同步的只读菜谱
 // 分类 = 仓库顶层目录名，菜名 = md 文件名；左侧分类导航（移动端为顶部筛选片）+ 封面卡片网格
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card, Input, Tag, Title } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { Notification } from "@/lib/toast";
 import { Perm } from "@/components/Perm";
 import { WhatToEatModal } from "@/components/WhatToEatModal";
+import { SOURCE_LABELS } from "@/lib/recipes/sources";
 
 interface RecipeCategory {
   name: string;
@@ -17,18 +18,26 @@ interface RecipeCategory {
 
 interface RecipeItem {
   id: number;
+  source: string;
   category: string;
   name: string;
   image: string;
 }
 
-interface SyncStatus {
-  repo: string;
+interface SyncSourceStatus {
+  source: string;
+  label: string;
   count: number;
-  syncing: boolean;
   lastSyncedAt: string;
   lastStatus: string;
   lastError: string;
+}
+
+interface SyncStatus {
+  total: number;
+  syncing: boolean;
+  current: string;
+  sources: SyncSourceStatus[];
 }
 
 function fmtSyncTime(iso: string): string {
@@ -36,45 +45,64 @@ function fmtSyncTime(iso: string): string {
   return new Date(iso).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-/** 手动同步徽章：仅对拥有同步权限的人可见（admin 默认可见） */
+/** 手动同步徽章：同步是后台任务，这里轮询状态直到结束；仅对拥有同步权限的人可见 */
 function SyncBadge() {
   const [status, setStatus] = useState<SyncStatus | null>(null);
-  const [busy, setBusy] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
 
   const load = useCallback(() => {
     api<SyncStatus>("/api/recipes/sync")
-      .then(setStatus)
+      .then((s) => {
+        setStatus(s);
+        if (s.syncing && !pollRef.current) {
+          pollRef.current = setInterval(load, 3000); // 同步进行中：3 秒轮询进度
+        }
+        if (!s.syncing) stopPolling();
+      })
       .catch(() => {});
-  }, []);
+  }, [stopPolling]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    return stopPolling;
+  }, [load, stopPolling]);
 
   const sync = async () => {
-    setBusy(true);
     try {
-      const summary = await api<{ total: number; added: number; updated: number; removed: number }>(
-        "/api/recipes/sync",
-        { method: "POST" }
-      );
-      Notification.success(`同步完成：共 ${summary.total} 篇（新增 ${summary.added}、更新 ${summary.updated}、删除 ${summary.removed}）`);
+      const r = await api<{ started: boolean }>("/api/recipes/sync", { method: "POST" });
+      Notification.info(r.started ? "同步已在后台开始，完成后状态自动刷新" : "同步已在进行中");
       load();
     } catch (e: any) {
       Notification.error(e.message);
-    } finally {
-      setBusy(false);
     }
   };
+
+  const latest = status?.sources.reduce((max, s) => (s.lastSyncedAt > max ? s.lastSyncedAt : max), "") ?? "";
+  const errCount = status?.sources.filter((s) => s.lastStatus === "error").length ?? 0;
+  const syncing = !!status?.syncing;
 
   return (
     <div className="flex items-center gap-2 text-sm text-secondary">
       <span className="hidden sm:inline">
-        {status?.count ? `共 ${status.count} 道 · ` : ""}
-        {status ? `上次同步 ${fmtSyncTime(status.lastSyncedAt)}` : ""}
-        {status?.lastStatus === "error" && <span className="text-red-500">（上次失败）</span>}
+        {syncing ? (
+          <span className="animate-pulse">{status?.current ? `同步中：${status.current}` : "同步中…"}</span>
+        ) : (
+          <>
+            {status?.total ? `共 ${status.total} 道 · ` : ""}
+            {latest ? `上次同步 ${fmtSyncTime(latest)}` : ""}
+            {errCount > 0 && <span className="text-red-500">（{errCount} 个源异常）</span>}
+          </>
+        )}
       </span>
-      <Button size="small" onClick={sync} disabled={busy}>
-        {busy ? "同步中…" : "同步菜谱"}
+      <Button size="small" onClick={sync} disabled={syncing}>
+        {syncing ? "同步中…" : "同步菜谱"}
       </Button>
     </div>
   );
@@ -190,7 +218,9 @@ export default function RecipesPage() {
                         <div className="text-sm font-medium truncate" style={{ color: "var(--animal-text-color)" }}>
                           {item.name}
                         </div>
-                        <div className="text-xs text-secondary mt-0.5">{item.category}</div>
+                        <div className="text-xs text-secondary mt-0.5 truncate">
+                          {item.category} · {SOURCE_LABELS[item.source] ?? item.source}
+                        </div>
                       </div>
                     </Card>
                   </Link>

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { recipes } from "@/db/schema";
 import { getAiRuntimeConfig } from "@/lib/ai/config";
 import { chatJSON, type AiConfigInput } from "@/lib/ai/client";
+import { SOURCE_LABELS } from "./sources";
 
 /**
  * 「今天吃什么」：从食谱库随机抽 14 道候选，交给 AI 按 当前餐段 搭配 2-3 道并给理由。
@@ -13,6 +14,7 @@ export interface SuggestPick {
   id: number;
   name: string;
   category: string;
+  source: string;
   image: string;
   reason: string;
 }
@@ -35,7 +37,7 @@ function mealLabel(): string {
 
 export async function suggestMeals(userId: number): Promise<SuggestResult> {
   const candidates = db
-    .select({ id: recipes.id, category: recipes.category, name: recipes.name, image: recipes.image })
+    .select({ id: recipes.id, category: recipes.category, name: recipes.name, source: recipes.source, image: recipes.image })
     .from(recipes)
     .orderBy(sql`RANDOM()`)
     .limit(CANDIDATES)
@@ -70,7 +72,7 @@ export async function suggestMeals(userId: number): Promise<SuggestResult> {
     for (const p of (Array.isArray(raw?.picks) ? raw.picks : []).slice(0, 4)) {
       const c = byId.get(Number(p?.id));
       if (!c || picks.some((x) => x.id === c.id)) continue;
-      picks.push({ id: c.id, name: c.name, category: c.category, image: c.image, reason: String(p?.reason ?? "").trim().slice(0, 80) });
+      picks.push({ id: c.id, name: c.name, category: c.category, source: c.source, image: c.image, reason: String(p?.reason ?? "").trim().slice(0, 80) });
     }
     if (!picks.length) throw new Error(`模型未返回有效推荐：${JSON.stringify(raw).slice(0, 120)}`);
     return { picks, aiUsed: true };

@@ -815,6 +815,7 @@ CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user ON mcp_tokens(user_id);
 sqlite.exec(`
 CREATE TABLE IF NOT EXISTS recipes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL DEFAULT 'cooklikehoc',
   category TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL DEFAULT '',
   source_path TEXT NOT NULL,
@@ -822,10 +823,10 @@ CREATE TABLE IF NOT EXISTS recipes (
   image TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL DEFAULT ''
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_recipes_source_path ON recipes(source_path);
 CREATE INDEX IF NOT EXISTS idx_recipes_category ON recipes(category);
 CREATE TABLE IF NOT EXISTS recipe_sync_state (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL DEFAULT 'cooklikehoc',
   last_commit TEXT NOT NULL DEFAULT '',
   last_synced_at TEXT NOT NULL DEFAULT '',
   last_status TEXT NOT NULL DEFAULT '',
@@ -839,6 +840,15 @@ ensureColumn("ai_settings", "embedding_model", "TEXT NOT NULL DEFAULT ''");
 // 记忆检索重排：开关 + 模型名（qwen3-rerank 等 OpenAI 兼容 /reranks 端点）
 ensureColumn("ai_settings", "rerank_enabled", "INTEGER NOT NULL DEFAULT 0");
 ensureColumn("ai_settings", "rerank_model", "TEXT NOT NULL DEFAULT ''");
+// 食谱库多源改造：存量行回填为 cooklikehoc，唯一键 source_path → (source, source_path)
+ensureColumn("recipes", "source", "TEXT NOT NULL DEFAULT 'cooklikehoc'");
+ensureColumn("recipe_sync_state", "source", "TEXT NOT NULL DEFAULT 'cooklikehoc'");
+sqlite.exec(`
+UPDATE recipe_sync_state SET source = 'cooklikehoc' WHERE source = '' OR source IS NULL;
+DROP INDEX IF EXISTS idx_recipes_source_path;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_recipes_source_dish ON recipes(source, source_path);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_recipe_sync_state_source ON recipe_sync_state(source);
+`);
 
 // 种子账号：首次运行时创建默认管理员 admin/admin123
 const userCount = (sqlite.prepare("SELECT COUNT(*) as c FROM users").get() as any).c;

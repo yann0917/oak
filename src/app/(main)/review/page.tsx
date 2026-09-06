@@ -101,7 +101,7 @@ export default function ReviewPage() {
             </div>
           )}
           <div className="flex gap-3 mt-6 justify-center">
-            <Button type="primary" onClick={() => router.push("/notes")}>
+            <Button type="primary" onClick={() => router.push("/tools/notes")}>
               返回错题本
             </Button>
             <Button onClick={() => total === 0 && router.push("/stats")}>查看统计</Button>
