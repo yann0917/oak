@@ -5,13 +5,11 @@
 # 注意：部署包不含 data/、uploads/（用户数据不进制品）。
 # 制品 oak-dist 部署成功后即删除以省存储额度；部署失败时保留 14 天供排查下载。
 #
-# 服务以 pm2 常驻（启动命令 pm2-runtime，进程守护/崩溃自愈），每次部署解压完
-# 自动 pm2 reload 使新版本生效，不再需要手动重启 Docker。
-# 服务器侧一次性准备（OAK_USER 执行，Node >= 22）：
-#   docker stop <原容器名>                                  # 停掉 Docker 方式，避免端口占用
-#   npm i -g pm2
-#   cd /opt/oak && pm2-runtime start ecosystem.config.js   # 前台拉起，进程名 oak
-# 常驻保活建议交给 systemd 托管 pm2-runtime（开机自启 + 崩溃自动拉起）。
+# 应用以 Docker 容器常驻：容器内由 pm2-runtime 拉起进程（挂载 /opt/oak，进程名 oak）。
+# 每次部署解压到宿主机 /opt/oak 后，自动 docker exec 进容器 pm2 reload 生效，
+# 无需手动重启容器。目标容器自动定位（找挂载 /opt/oak 的唯一运行中容器），
+# 1Panel 等面板生成的随机容器名无需固定；如需精确指定可配 OAK_CONTAINER（可选）。
+# 服务器侧要求：部署用户（OAK_USER）有 docker 权限，不在 docker 组则 usermod -aG docker <OAK_USER>。
 #
 # 需要在仓库 Settings → Secrets and variables → Actions 配置：
 #   OAK_HOST            服务器地址（IP 或域名）
@@ -19,6 +17,7 @@
 #   OAK_SSH_KEY         SSH 私钥完整内容（-----BEGIN ... 到 -----END ...）
 #   OAK_PORT            可选，SSH 端口（默认 22）
 #   OAK_KEY_PASSPHRASE  可选，私钥口令
+#   OAK_CONTAINER       可选，应用容器名精确指定；不配则自动定位挂载 /opt/oak 的运行中容器
 
 name: Build & Deploy
 
@@ -38,6 +37,7 @@ env:
   OAK_KEY: ${{ secrets.OAK_SSH_KEY }}
   OAK_PORT: ${{ secrets.OAK_PORT }}
   OAK_KEY_PASSPHRASE: ${{ secrets.OAK_KEY_PASSPHRASE }}
+  OAK_CONTAINER: ${{ secrets.OAK_CONTAINER }}
 
 jobs:
   build-and-deploy:
@@ -117,22 +117,42 @@ jobs:
           ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" 'mkdir -p /opt/oak'
           scp "${SSH_OPTS[@]}" -P "${SSH_PORT}" oak-dist.tar.gz "${OAK_USER}@${OAK_HOST}:/opt/oak/oak-dist.tar.gz"
 
-          # 解压后立即用 pm2 平滑重启（fork 模式 reload 等价 restart），新版本即生效；
+          # 解压到宿主机后通过 docker exec 让容器内 pm2 reload（fork 模式 reload 等价 restart）；
           # 全部成功才清理部署包，失败时留在服务器便于排查
           ssh "${SSH_OPTS[@]}" -p "${SSH_PORT}" "${OAK_USER}@${OAK_HOST}" '
             set -e
-            export PATH="$HOME/.npm-global/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
             cd /opt/oak
             rm -rf .next node_modules server.js public
             tar -xzf oak-dist.tar.gz
             test -f server.js && test -d .next/static
-            if pm2 reload oak --update-env; then
-              rm -f oak-dist.tar.gz
-              echo "pm2 reload 完成，新版本已生效（部署包已清理）"
-            else
-              echo "::error::pm2 reload 失败：未找到 oak 进程或 pm2 未安装。首次迁移请在服务器执行: cd /opt/oak && pm2-runtime start ecosystem.config.js"
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "::error::服务器上没有 docker 命令"
               exit 1
             fi
+            # 定位目标容器：优先 OAK_CONTAINER 精确匹配（可选 secret）；否则自动找
+            # 挂载了 /opt/oak 的运行中容器（须唯一），1Panel 随机容器名无需手填
+            CT=""
+            if [ -n '"$OAK_CONTAINER"' ] && docker ps --format "{{.Names}}" | grep -Fxq '"$OAK_CONTAINER"'; then
+              CT='"$OAK_CONTAINER"'
+            else
+              CT=$(for id in $(docker ps -q); do
+                if docker inspect -f "{{.Name}} {{range .Mounts}}{{.Source}} {{end}}" "$id" | grep -q " /opt/oak "; then
+                  docker inspect -f "{{.Name}}" "$id" | sed "s|^/||"
+                fi
+              done | sort -u)
+              n=$(printf "%s\n" "$CT" | grep -c . || true)
+              if [ "$n" -ne 1 ]; then
+                echo "::error::无法唯一定位应用容器（挂载 /opt/oak 的运行中容器找到 $n 个）。请在 GitHub Secrets 配置 OAK_CONTAINER 为完整容器名（docker ps 查看）"
+                exit 1
+              fi
+            fi
+            echo "目标容器: $CT"
+            if ! docker exec "$CT" pm2 reload oak --update-env; then
+              echo "::error::容器内 pm2 reload 失败：请核对 ①容器内启动命令为 pm2-runtime start ecosystem.config.js（进程名 oak）；②部署用户有 docker 权限（不在 docker 组则 usermod -aG docker <OAK_USER>）"
+              exit 1
+            fi
+            rm -f oak-dist.tar.gz
+            echo "pm2 reload 完成，新版本已生效（部署包已清理）"
             echo "部署完成，/opt/oak 当前内容："
             ls -la
           '
