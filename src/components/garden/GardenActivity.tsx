@@ -33,6 +33,7 @@ import type { TtsVoice } from "@/lib/tts/voices";
 import { ACTIVITY_MAP, ACTIVITY_PALETTE } from "@/lib/garden/registry";
 import { BUILTIN_CHARACTERS } from "@/data/garden/characters";
 import { PINYIN_READ } from "@/data/garden/pinyin";
+import { COLORS } from "@/data/garden/colors";
 import { DEFAULT_MATH_CONFIG, buildQuestions, parseConfig } from "@/lib/garden/engine";
 import {
   DIFFICULTIES,
@@ -69,6 +70,11 @@ interface ResultItem {
   itemKey: string;
   label: string;
   correct: boolean;
+}
+
+/** 色值 → 颜色名（颜色题答案反馈用） */
+function colorNameOf(hex: string): string {
+  return COLORS.find((c) => c.hex === hex)?.zh ?? hex;
 }
 
 const PRAISE = ["太棒了！你真厉害！", "哇！太厉害了！", "好样的！就是它！"];
@@ -778,11 +784,24 @@ export default function GardenActivity({ type }: { type: string }) {
                 </div>
               ) : (
                 <div
-                  className="px-5 py-2.5 rounded-full text-white font-bold text-lg"
+                  className="px-5 py-2.5 rounded-full text-white font-bold text-lg flex items-center gap-2"
                   style={{ background: "#f4736f", boxShadow: "0 6px 16px rgba(61,52,40,0.25)" }}
                 >
                   {picked === "__skipped__" ? "正确答案：" : "正确答案："}
-                  {question.answer}
+                  {question.optionKind === "color" ? (
+                    <>
+                      <span
+                        className="inline-block w-5 h-5 rounded-md border-2"
+                        style={{
+                          background: question.answer,
+                          borderColor: "rgba(255,255,255,0.85)",
+                        }}
+                      />
+                      {colorNameOf(question.answer)}
+                    </>
+                  ) : (
+                    question.answer
+                  )}
                 </div>
               )}
             </div>
@@ -861,6 +880,8 @@ export default function GardenActivity({ type }: { type: string }) {
   }
 
   function renderChoice() {
+    // 颜色认知：选项是色块，不识字的孩子听题作答
+    if (question.optionKind === "color") return renderColorChoice();
     return (
       <>
         <div className="flex flex-col items-center text-center gap-3">
@@ -889,6 +910,37 @@ export default function GardenActivity({ type }: { type: string }) {
                 highlighted={answered && isAnswer}
                 onClick={() => answerChoice(opt)}
                 disabled={answered}
+              />
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
+  function renderColorChoice() {
+    const answered = picked !== null;
+    return (
+      <>
+        <div className="flex flex-col items-center text-center gap-3">
+          <p className="text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
+            {question.prompt}
+          </p>
+          <DisplayBody question={question} />
+        </div>
+        <div className="grid grid-cols-4 gap-3 sm:gap-4 mt-6">
+          {question.options.map((opt) => {
+            const isAnswer = opt === question.answer;
+            return (
+              <ColorOptionButton
+                key={opt}
+                hex={opt}
+                name={colorNameOf(opt)}
+                disabled={answered}
+                wrong={answered && opt === picked && !isAnswer}
+                dimmed={answered && !isAnswer && opt !== picked}
+                highlighted={answered && isAnswer}
+                onClick={() => answerChoice(opt)}
               />
             );
           })}
@@ -1234,6 +1286,61 @@ function DisplayBody({ question }: { question: Question }) {
   return (
     <div className="text-5xl font-black tracking-widest" style={{ color: "var(--animal-text-color)" }}>
       {d.value}
+    </div>
+  );
+}
+
+/** 颜色认知的色块选项：大色块即答案载体，不识字也能作答；按压/高亮样式与 CandyButton 一致 */
+function ColorOptionButton({
+  hex,
+  name,
+  onClick,
+  disabled,
+  dimmed,
+  wrong,
+  highlighted,
+}: {
+  hex: string;
+  name: string;
+  onClick: () => void;
+  disabled?: boolean;
+  dimmed?: boolean;
+  wrong?: boolean;
+  highlighted?: boolean;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled || undefined}
+      aria-label={name}
+      onClick={() => !disabled && onClick()}
+      onKeyDown={(e) => {
+        if (!disabled && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`relative aspect-square rounded-2xl border-4 select-none ${
+        disabled ? "cursor-default" : "cursor-pointer"
+      }`}
+      style={{
+        background: hex,
+        borderColor: "var(--animal-border-color-light)",
+        boxShadow: disabled ? "none" : "0 5px 0 rgba(61,52,40,0.22)",
+        opacity: dimmed ? 0.45 : wrong ? 0.7 : 1,
+        outline: highlighted ? "4px solid #ffd85e" : undefined,
+        outlineOffset: highlighted ? 2 : undefined,
+        transform: disabled ? "translateY(3px)" : undefined,
+        transition:
+          "transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+    >
+      {wrong && (
+        <span className="absolute inset-0 flex items-center justify-center text-3xl" aria-hidden>
+          ❌
+        </span>
+      )}
     </div>
   );
 }

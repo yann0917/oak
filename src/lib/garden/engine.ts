@@ -45,6 +45,17 @@ function sample<T>(arr: T[], n: number): T[] {
   return shuffle(arr).slice(0, Math.max(0, n));
 }
 
+/** 两个 hex 色值的感知距离（redmean 加权：比纯 RGB 更接近人眼对色差的感受，相近色配对挑干扰项用） */
+function hexDist(a: string, b: string): number {
+  const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [r1, g1, b1] = rgb(a);
+  const [r2, g2, b2] = rgb(b);
+  const rm = (r1 + r2) / 2;
+  return (
+    (2 + rm / 256) * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + (2 + (255 - rm) / 256) * (b1 - b2) ** 2
+  );
+}
+
 function makeChoiceQuestion(
   base: Omit<Question, "mode" | "options">,
   options: string[]
@@ -451,49 +462,57 @@ export function buildQuestions(opts: BuildOptions): Question[] {
     }
 
     case "colors": {
+      // 幼儿园孩子不识字：三档统一「听题点色块」，语音读题干，选项全是色块
       const pool: PoolItem<(typeof COLORS)[number]>[] = COLORS.map((c) => ({
-        itemKey: tier === 1 ? `color:${c.en}` : `color:en:${c.en}`,
+        itemKey: tier === 1 ? `color:${c.en}` : tier === 2 ? `color:en:${c.en}` : `color:match:${c.en}`,
         item: c,
       }));
       const items = pickWeighted(pool, mastery, Math.min(count, pool.length));
       return shuffle(
         items.map((item) => {
+          const others = COLORS.filter((c) => c.en !== item.en).map((c) => c.hex);
           if (tier === 1) {
-            const others = COLORS.filter((c) => c.zh !== item.zh).map((c) => c.zh);
+            // 听中文找颜色：语音读「哪个是红色？」，孩子点对应色块
             return makeChoiceQuestion(
               {
                 itemKey: `color:${item.en}`,
                 label: item.zh,
-                prompt: "这是什么颜色？",
-                display: { kind: "color", value: item.hex },
-                answer: item.zh,
+                prompt: `哪个是${item.zh}？`,
+                display: { kind: "text", value: item.zh },
+                optionKind: "color",
+                answer: item.hex,
               },
-              [item.zh, ...sample(others, 3)]
+              [item.hex, ...sample(others, 3)]
             );
           }
           if (tier === 2) {
-            const others = COLORS.filter((c) => c.en !== item.en).map((c) => c.en);
+            // 听英文找颜色：英文音色读题面，点对应色块
             return makeChoiceQuestion(
               {
                 itemKey: `color:en:${item.en}`,
                 label: `${item.zh} → ${item.en}`,
-                prompt: `「${item.zh}」的英文是哪个？`,
-                display: { kind: "color", value: item.hex, sub: item.zh },
-                answer: item.en,
+                prompt: `「${item.en}」是什么颜色？`,
+                display: { kind: "text", value: item.en },
+                optionKind: "color",
+                answer: item.hex,
               },
-              [item.en, ...sample(others, 3)]
+              [item.hex, ...sample(others, 3)]
             );
           }
-          const others = COLORS.filter((c) => c.zh !== item.zh).map((c) => c.zh);
+          // 相近色配对：干扰项取色值最接近的几种颜色，考颜色辨别
+          const near = COLORS.filter((c) => c.en !== item.en)
+            .sort((a, b) => hexDist(item.hex, a.hex) - hexDist(item.hex, b.hex))
+            .slice(0, 4);
           return makeChoiceQuestion(
             {
-              itemKey: `color:en:${item.en}`,
-              label: `${item.zh} → ${item.en}`,
-              prompt: `「${item.en}」是什么颜色？`,
-              display: { kind: "text", value: item.en },
-              answer: item.zh,
+              itemKey: `color:match:${item.en}`,
+              label: `配对 ${item.zh}`,
+              prompt: "找出和它一样的颜色",
+              display: { kind: "color", value: item.hex },
+              optionKind: "color",
+              answer: item.hex,
             },
-            [item.zh, ...sample(others, 3)]
+            [item.hex, ...sample(near, 3).map((c) => c.hex)]
           );
         })
       );

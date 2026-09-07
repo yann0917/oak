@@ -67,6 +67,7 @@ export interface Question {
   prompt: string; // 题干
   display: QuestionDisplay; // 卡面主体
   options: string[]; // choice 模式的选项（已打乱）
+  optionKind?: "color"; // 选项渲染为色块（颜色认知：不识字也能听题作答）
   answer: string; // choice 的正确选项 / keypad 的正确数值
   flip?: { pinyin: string; word: string }; // flashcard 翻面内容
 }

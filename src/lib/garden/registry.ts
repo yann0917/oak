@@ -66,12 +66,12 @@ export const GARDEN_ACTIVITIES: ActivityMeta[] = [
   {
     key: "colors",
     name: "颜色认知",
-    desc: "红橙黄绿蓝靛紫，中英文都说得出",
+    desc: "听一听、点一点，找出听到的颜色",
     glyph: "色",
     color: "app-pink",
     stages: ["幼儿园"],
     mode: "choice",
-    difficultyInfo: { 简单: "看色块认颜色", 中等: "中文变英文", 困难: "英文变中文" },
+    difficultyInfo: { 简单: "听中文找颜色", 中等: "听英文找颜色", 困难: "相近色配对" },
   },
   {
     key: "words",
