@@ -13,13 +13,13 @@ export interface GameMeta {
 
 export const GAMES: GameMeta[] = [
   {
-    key: "ping-pong",
-    name: "乒乓球接球",
-    desc: "手掌当球拍托起乒乓球，别让它掉地上",
-    glyph: "乒",
+    key: "gesture-magic",
+    name: "魔法手势",
+    desc: "挥挥小手变出粒子魔法，每种手势都有专属特效",
+    glyph: "手",
     color: "app-blue",
-    model: "手部关键点",
-    tips: ["手掌正对镜头，横着手像托球一样", "球快掉时手掌迎上去就会弹起来", "连击越高球越快、拍子越小（挑战自己！）"],
+    model: "手势识别",
+    tips: ["✋ 彩虹、✌️ 星星、✊ 烟花、👍 爱心四款小手势", "☝️ 泡泡、🤟 彩带、👌 金色光环三款别漏了", "🫶 两只手一起比心，触发终极特效"],
   },
   {
     key: "fruit-slice",

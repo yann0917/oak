@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import PingPong from "@/components/games/PingPong";
+import GestureMagic from "@/components/games/GestureMagic";
 import FruitSlice from "@/components/games/FruitSlice";
 import GestureDance from "@/components/games/GestureDance";
 import RockPaperScissors from "@/components/games/RockPaperScissors";
@@ -10,7 +10,7 @@ import TrafficCommander from "@/components/games/TrafficCommander";
 import { GAME_MAP } from "@/lib/games/registry";
 
 const RENDERERS: Record<string, React.ComponentType> = {
-  "ping-pong": PingPong,
+  "gesture-magic": GestureMagic,
   "fruit-slice": FruitSlice,
   "gesture-dance": GestureDance,
   "rock-paper-scissors": RockPaperScissors,

@@ -201,15 +201,18 @@ export function dist2d(a: PointLike, b: PointLike): number {
  * 刻意不含拇指——拇指姿态多样，判整手开合时反而引入噪声。
  */
 export function extendedFingers2d(lm: PointLike[]): number {
-  if (!lm || lm.length < 21) return -1;
+  return extendedFingers(lm).length;
+}
+
+/** 伸直手指的指尖下标列表（食/中/无/小，不含拇指） */
+export function extendedFingers(lm: PointLike[]): number[] {
+  if (!lm || lm.length < 21) return [];
   const wrist = lm[0];
-  let n = 0;
+  const out: number[] = [];
   for (const [tip, pip] of FINGER_TIP_PIP) {
-    if (
-      dist2d(lm[tip], wrist) > dist2d(lm[pip], wrist) * 1.03
-    ) n++;
+    if (dist2d(lm[tip], wrist) > dist2d(lm[pip], wrist) * 1.03) out.push(tip);
   }
-  return n;
+  return out;
 }
 
 const FINGER_TIP_PIP: [tip: number, pip: number][] = [
@@ -218,6 +221,71 @@ const FINGER_TIP_PIP: [tip: number, pip: number][] = [
   [16, 14], // 无名指
   [20, 18], // 小指
 ];
+
+// ---------- 手部：完整手势分类（供需要 OK/比心等标准模型外手势的游戏用） ----------
+
+/** 标准 GestureRecognizer 分类之外的自定义手势名（OK/比心 用关键点规则判定）；其余与 MediaPipe 分类名一致 */
+export type CustomGesture =
+  | "Open_Palm"
+  | "Closed_Fist"
+  | "Victory"
+  | "Thumb_Up"
+  | "Pointing_Up"
+  | "ILoveYou"
+  | "OK"
+  | "Heart";
+
+/**
+ * 双手 21 关键点 → 手势名。OK（拇指食指捏圈+三指伸直）和 Heart（双手捏圈对拢比心）
+ * 是 GestureRecognizer 内置 8 类里没有的，用 2D 规则补判；其余 6 种与分类器语义等价，
+ * 让不加载分类器模型也能玩全量手势（单模型更省电）。
+ * 归一化坐标下 y 向下："向上"= y 更小。手大小 s = 腕到掌根距离，阈值按 s 归一化抗远近差异。
+ */
+export function classifyHandGesture(hands: PointLike[][]): CustomGesture | null {
+  if (!hands || hands.length === 0) return null;
+  const lm = hands[0];
+  if (!lm || lm.length < 21) return null;
+  const s = Math.max(0.01, dist2d(lm[0], lm[9])); // 手腕 → 掌根
+
+  // 双手比心（🫶）：两手都捏成小圈且对拢靠近；优先于单手 OK，避免单圈误判
+  if (hands.length >= 2) {
+    const lm2 = hands[1];
+    if (lm2 && lm2.length >= 21) {
+      const s2 = Math.max(0.01, dist2d(lm2[0], lm2[9]));
+      const okL = dist2d(lm[4], lm[8]) < 0.42 * s;
+      const okR = dist2d(lm2[4], lm2[8]) < 0.42 * s2;
+      const close = dist2d(lm[8], lm2[8]) < 0.34 || dist2d(lm[4], lm2[4]) < 0.34;
+      if (okL && okR && close) return "Heart";
+    }
+  }
+
+  const tipSet = new Set(extendedFingers(lm));
+  const has = (v: number) => tipSet.has(v);
+  // 拇指尖(4)与食指尖(8)捏合（OK/比心的核心条件）
+  const pinched = dist2d(lm[4], lm[8]) < 0.42 * s;
+  // 拇指放平（不朝上也不朝下，做其他手势辅助条件）
+  const thumbNeutral = Math.abs(lm[4].y - lm[2].y) < 0.04;
+  const thumbUp = lm[4].y < lm[2].y - 0.04;
+  const thumbDown = lm[4].y > lm[2].y + 0.04;
+
+  // OK 注意：食指卷曲在 2D 投影中常被 extendedFingers 误判为"伸直"，所以
+  // 这里不用"食指必须弯"，只要求捏合 + 中/无/小至少 2 根伸直即可互斥于 Victory/Pointing。
+  if (pinched && tipSet.size >= 3 && has(12) && has(16)) return "OK";
+
+  if (tipSet.size <= 1) {
+    // 拳头/点赞/点差：三指弯曲，靠拇指方向分
+    if (thumbUp) return "Thumb_Up";
+    if (thumbDown) return null; // 👎 不触发任何特效
+    if (tipSet.size === 1 && has(8) && thumbNeutral) return "Pointing_Up";
+    if (tipSet.size === 0) return "Closed_Fist";
+  }
+  if (tipSet.size === 2) {
+    if (has(8) && has(12)) return "Victory";
+    if (has(8) && has(20)) return "ILoveYou";
+  }
+  if (tipSet.size >= 3 && !pinched) return "Open_Palm";
+  return null;
+}
 
 // ---------- 手部：骨架连线（切水果/泡泡的指尖 + 骨架反馈用） ----------
 
