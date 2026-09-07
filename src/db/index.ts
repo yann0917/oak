@@ -11,7 +11,12 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const sqlite = new Database(path.join(dataDir, "oak.db"));
 sqlite.pragma("busy_timeout = 5000");
-sqlite.pragma("journal_mode = WAL");
+// 仅在非 WAL 时设置（切换 journal_mode 需要独占锁；构建期多 worker 并发
+// import 本模块时，若无条件设置容易互相抢锁触发 SQLITE_BUSY）。
+// 初始建库由 scripts/warm-db.mjs 在构建前单进程完成。
+if (sqlite.pragma("journal_mode", { simple: true }) !== "wal") {
+  sqlite.pragma("journal_mode = WAL");
+}
 
 sqlite.exec(`
 CREATE TABLE IF NOT EXISTS users (
