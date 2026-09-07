@@ -538,5 +538,9 @@ export function buildQuestions(opts: BuildOptions): Question[] {
         })
       );
     }
+
+    // 成语卡片（story 模式）不走出题引擎，不会到达这里
+    default:
+      return [];
   }
 }

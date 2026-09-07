@@ -313,6 +313,17 @@ export const gardenCharacters = sqliteTable("garden_characters", {
   createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+// 成语故事缓存（每用户每成语每年龄组一条）：AI 生成后落库，之后直接复用不再生成
+export const gardenIdiomStories = sqliteTable("garden_idiom_stories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().default(1), // 归属用户（多账号隔离）
+  word: text("word").notNull(), // 成语，同 BUILTIN_IDIOMS
+  ageGroup: text("age_group").notNull(), // 年龄组 key，见 AGE_GROUPS
+  story: text("story").notNull().default(""), // 故事正文
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
 // ===== 提醒中心 =====
 
 // 提醒主表：调度只认 next_run_at，预计算落库，进程重启零丢失

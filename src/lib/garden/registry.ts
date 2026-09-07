@@ -8,7 +8,7 @@ export interface ActivityMeta {
   glyph: string; // 卡片大字图形
   color: string; // animal-island-ui 色名（CardColor/TagColor 取值）
   stages: string[]; // 目标阶段：仅 幼儿园/小学
-  mode: "choice" | "flashcard";
+  mode: "choice" | "flashcard" | "story";
   difficultyInfo: Record<Difficulty, string>;
 }
 
@@ -82,6 +82,16 @@ export const GARDEN_ACTIVITIES: ActivityMeta[] = [
     stages: ["幼儿园", "小学"],
     mode: "choice",
     difficultyInfo: { 简单: "看图认词（英译中）", 中等: "中译英", 困难: "进阶词汇" },
+  },
+  {
+    key: "idioms",
+    name: "成语卡片",
+    desc: "读拼音懂意思，听 AI 讲成语小故事",
+    glyph: "成",
+    color: "app-yellow",
+    stages: ["幼儿园", "小学"],
+    mode: "story",
+    difficultyInfo: { 简单: "常见成语", 中等: "常用成语", 困难: "进阶成语" },
   },
 ];
 

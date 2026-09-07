@@ -330,6 +330,15 @@ CREATE TABLE IF NOT EXISTS garden_characters (
   tier INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS garden_idiom_stories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  word TEXT NOT NULL,
+  age_group TEXT NOT NULL,
+  story TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 
 -- 提醒中心
 CREATE TABLE IF NOT EXISTS reminders (
@@ -515,6 +524,7 @@ CREATE INDEX IF NOT EXISTS idx_garden_characters_child ON garden_characters(chil
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_settings_child_activity ON garden_settings(child_id, activity);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_mastery_child_activity_item ON garden_mastery(child_id, activity, item_key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_characters_child_char ON garden_characters(child_id, char);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_idiom_stories_user_word_age ON garden_idiom_stories(user_id, word, age_group);
 
 -- 提醒中心：调度只看 idx_reminders_due，一条索引查询搞定到期检查
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(enabled, next_run_at);

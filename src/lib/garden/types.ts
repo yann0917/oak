@@ -3,7 +3,7 @@ export type Difficulty = "简单" | "中等" | "困难";
 export const DIFFICULTIES: Difficulty[] = ["简单", "中等", "困难"];
 
 export const ACTIVITY_KEYS = [
-  "characters", "math", "pinyin", "letters", "poems", "colors", "words",
+  "characters", "math", "pinyin", "letters", "poems", "colors", "words", "idioms",
 ] as const;
 export type ActivityKey = (typeof ACTIVITY_KEYS)[number];
 

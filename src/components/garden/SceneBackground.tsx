@@ -18,7 +18,7 @@ interface DriftProps {
 
 export default function SceneBackground() {
   return (
-    <div className="garden-scene absolute inset-0 overflow-hidden" aria-hidden>
+    <div className="garden-scene fixed inset-0 overflow-hidden" aria-hidden>
       {/* 天空：暖调浅蓝，地平线过渡到羊皮纸色 */}
       <div
         className="absolute inset-0"

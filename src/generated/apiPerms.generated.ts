@@ -304,6 +304,16 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "识字字库·修改"
   },
   {
+    "resource": "garden-idiom-story",
+    "perms": "api:garden-idiom-story:create",
+    "label": "garden-idiom-story·新增"
+  },
+  {
+    "resource": "garden-idioms",
+    "perms": "api:garden-idioms:list",
+    "label": "garden-idioms·查看列表"
+  },
+  {
     "resource": "garden-mastery",
     "perms": "api:garden-mastery:list",
     "label": "知识掌握度·查看列表"

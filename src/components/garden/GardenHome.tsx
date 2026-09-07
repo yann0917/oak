@@ -108,7 +108,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         activeKey={tab}
         onChange={(key) => setTab(key)}
         items={[
-          { key: "cards", label: "活动卡片", children: renderCardsTab() },
+          { key: "cards", label: "学习卡片", children: renderCardsTab() },
           { key: "games", label: "益智游戏", children: <GamesMenu /> },
           { key: "records", label: "学习记录", children: renderRecordsTab() },
         ]}
@@ -165,10 +165,16 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Chip color={DIFF_COLOR[difficulty]}>{difficulty}</Chip>
-                    <span className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
-                      练过 {count} 次
-                    </span>
+                    {a.key === "idioms" ? (
+                      <Chip color="purple">AI 讲故事</Chip>
+                    ) : (
+                      <>
+                        <Chip color={DIFF_COLOR[difficulty]}>{difficulty}</Chip>
+                        <span className="text-xs" style={{ color: "var(--animal-text-color-secondary)" }}>
+                          练过 {count} 次
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -206,7 +212,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
               className="text-center py-10 text-sm"
               style={{ color: "var(--animal-text-color-secondary)" }}
             >
-              还没有练习记录，去「活动卡片」里玩一轮吧
+              还没有练习记录，去「学习卡片」里玩一轮吧
             </div>
           </Card>
         ) : (
