@@ -13,7 +13,6 @@ export const menuSeedDefs: MenuSeedNode[] = [
   { type: "menu", name: "概览", path: "/", icon: "icon-map", sort: 1 },
   { type: "menu", name: "教育经历", path: "/education", icon: "icon-critterpedia", sort: 2 },
   { type: "menu", name: "课程表", path: "/timetable", icon: "icon-design", sort: 3 },
-  { type: "menu", name: "学习情况", path: "/learning", icon: "icon-diy", sort: 4 },
   { type: "menu", name: "学习园地", path: "/garden", icon: "icon-miles", sort: 5 },
   { type: "menu", name: "成长记录", path: "/growth", icon: "icon-miles", sort: 6 },
   { type: "menu", name: "健康档案", path: "/health", icon: "icon-variant", sort: 7 },

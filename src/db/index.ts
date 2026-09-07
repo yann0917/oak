@@ -899,6 +899,10 @@ if (!recipesMenuExists) {
   sqlite.exec("UPDATE menus SET sort = sort + 1 WHERE type = 'menu' AND sort >= 17");
 }
 
+// 学习情况菜单移除迁移（幂等）：学习记录/兴趣班已并入「教育经历」，删除老菜单，
+// 避免残留指向已删除页面的入口（roles_menus 外键级联清理）。
+sqlite.prepare("DELETE FROM menus WHERE type = 'menu' AND path = '/learning'").run();
+
 // 权限种子：admin 超管升级 + 菜单树 + 示例角色（幂等）
 export const db = drizzle(sqlite, { schema });
 ensurePermissionSeeds(db);

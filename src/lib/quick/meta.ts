@@ -30,7 +30,7 @@ export const QUICK_TYPE_META: Record<QuickType, QuickTypeMeta> = {
   fee: { label: "账单", color: "app-blue", path: "/bills", childScoped: true },
   growth: { label: "成长记录", color: "app-teal", path: "/growth", childScoped: true },
   moment: { label: "时光相册", color: "app-yellow", path: "/moments", childScoped: true },
-  learning: { label: "学习记录", color: "app-orange", path: "/learning", childScoped: true },
+  learning: { label: "学习记录", color: "app-orange", path: "/education?tab=records", childScoped: true },
   reminder: { label: "提醒中心", color: "purple", path: "/reminders", childScoped: false },
   todo: { label: "待办", color: "warm-peach-pink", path: "/tools/todo", childScoped: false },
   cert: { label: "卡证档案", color: "app-blue", path: "/certs", childScoped: false },
