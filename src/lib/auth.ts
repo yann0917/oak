@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import type { InferSelectModel } from "drizzle-orm";
 import { hasPerm } from "./casbin";
+import { guard, RATE_LIMITS } from "./rateLimit";
 
 export const AUTH_SECRET = process.env.AUTH_SECRET || "edu-tracker-dev-secret-change-me";
 
@@ -68,6 +69,9 @@ export function requireUser(req: NextRequest): { user: AuthUser } | { response: 
   if (!tokenUser) return { response: NextResponse.json({ error: "未登录" }, { status: 401 }) };
   const user = db.select().from(users).where(eq(users.id, tokenUser.uid)).get();
   if (!user || !user.status) return { response: NextResponse.json({ error: "账号不存在或已停用" }, { status: 401 }) };
+  // 全局兜底限流：单实例内存计数（见 rateLimit.ts）
+  const limited = guard(`user:${user.id}`, RATE_LIMITS.api);
+  if (limited) return { response: limited };
   return { user };
 }
 
