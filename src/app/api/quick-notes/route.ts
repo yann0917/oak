@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { children, quickNotes } from "@/db/schema";
 import { getAiRuntimeConfig } from "@/lib/ai/config";
 import { authorize, requireUser } from "@/lib/auth";
+import { guard, RATE_LIMITS } from "@/lib/rateLimit";
 import { buildChildBriefs, classifyQuickNote, todayString } from "@/lib/ai/classify";
 import { dispatchQuickIntent } from "@/lib/ai/dispatch";
 import { downloadRemotePhoto } from "@/lib/quick/download";
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
   const uid = auth.user.id;
   const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:quick-notes:create");
   if (denied) return denied;
+  const limited = guard(`ai:${uid}`, RATE_LIMITS.ai);
+  if (limited) return limited;
 
   const body = await req.json();
   const content = typeof body.content === "string" ? body.content.trim() : "";

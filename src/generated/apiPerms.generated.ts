@@ -114,6 +114,11 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "ai-usage·查看列表"
   },
   {
+    "resource": "app",
+    "perms": "api:app:home-get",
+    "label": "移动端·首屏聚合"
+  },
+  {
     "resource": "bills",
     "perms": "api:bills:create",
     "label": "账单·新增"

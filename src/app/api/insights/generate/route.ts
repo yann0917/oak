@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorize, requireUser } from "@/lib/auth";
+import { guard, RATE_LIMITS } from "@/lib/rateLimit";
 import { generateInsight } from "@/lib/insights/generate";
 import type { InsightPeriod } from "@/lib/insights/aggregate";
 
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest) {
   if ("response" in auth) return auth.response;
   const denied = await authorize(auth.user.username, auth.user.isAdmin, "api:insights:create");
   if (denied) return denied;
+  const limited = guard(`ai:${auth.user.id}`, RATE_LIMITS.ai);
+  if (limited) return limited;
   const body = await req.json();
   const period = (body.period === "weekly" ? "weekly" : "monthly") as InsightPeriod;
 

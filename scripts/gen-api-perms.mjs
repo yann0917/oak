@@ -23,6 +23,7 @@ const OUT_FILE = path.join(ROOT, "src", "generated", "apiPerms.generated.ts");
 /** 资源 → 展示名（匹配不到时直接显示资源名） */
 const RESOURCE_LABELS = {
   activities: "兴趣班",
+  app: "移动端",
   "child-teachers": "师生关联",
   children: "成员",
   notebooks: "笔记本",
@@ -94,6 +95,7 @@ const SUB_ACTION_LABELS = {
   "sync-get": "同步状态",
   "sync-post": "立即同步",
   "suggest-post": "AI 推荐菜谱",
+  "home-get": "首屏聚合",
 };
 
 function parseMethodNames(source) {

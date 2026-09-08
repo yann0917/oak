@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -6,6 +7,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import type { InferSelectModel } from "drizzle-orm";
 import { hasPerm } from "./casbin";
+import { guard, RATE_LIMITS } from "./rateLimit";
 
 export const AUTH_SECRET = process.env.AUTH_SECRET || "edu-tracker-dev-secret-change-me";
 
@@ -23,7 +25,22 @@ export function verifyToken(token: string) {
   }
 }
 
+/** 校验用户名密码（Web 登录与客户端登录共用）。失败返回 null。 */
+export function verifyCredentials(username: unknown, password: unknown): AuthUser | null {
+  if (typeof username !== "string" || typeof password !== "string") return null;
+  if (!username || !password) return null;
+  const user = db.select().from(users).where(eq(users.username, username)).get();
+  if (!user || !bcrypt.compareSync(password, user.passwordHash)) return null;
+  return user;
+}
+
+/** 优先读 Authorization: Bearer（原生客户端），回退 cookie（Web 端） */
 export function getTokenFromRequest(req: NextRequest) {
+  const header = req.headers.get("authorization") || "";
+  if (header) {
+    const bearer = header.replace(/^Bearer\s+/i, "").trim();
+    if (bearer) return bearer;
+  }
   return req.cookies.get("token")?.value || "";
 }
 
@@ -52,6 +69,9 @@ export function requireUser(req: NextRequest): { user: AuthUser } | { response: 
   if (!tokenUser) return { response: NextResponse.json({ error: "未登录" }, { status: 401 }) };
   const user = db.select().from(users).where(eq(users.id, tokenUser.uid)).get();
   if (!user || !user.status) return { response: NextResponse.json({ error: "账号不存在或已停用" }, { status: 401 }) };
+  // 全局兜底限流：单实例内存计数（见 rateLimit.ts）
+  const limited = guard(`user:${user.id}`, RATE_LIMITS.api);
+  if (limited) return { response: limited };
   return { user };
 }
 

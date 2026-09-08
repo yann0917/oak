@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { gardenIdiomStories } from "@/db/schema";
 import { requirePerm } from "@/lib/auth";
+import { guard, RATE_LIMITS } from "@/lib/rateLimit";
 import { getAiRuntimeConfig } from "@/lib/ai/config";
 import { streamChatCompletion } from "@/lib/ai/client";
 import { AGE_GROUPS, IDIOM_MAP } from "@/data/garden/idioms";
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
   const { user, denied } = await requirePerm("garden-idiom-story", "create", req);
   if (denied) return denied;
   if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+
+  const limited = guard(`ai:${user.id}`, RATE_LIMITS.ai);
+  if (limited) return limited;
 
   let body: { word?: unknown; ageGroup?: unknown };
   try {
