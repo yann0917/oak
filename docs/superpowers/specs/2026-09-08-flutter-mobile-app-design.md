@@ -90,7 +90,9 @@ token 有效期沿用 30 天，客户端存入 Keychain / Keystore（`flutter_se
 
 ### R4 权限与安全
 
-新建客户端专用账号，绑定最小权限角色，只勾选（权限点名已按 `scripts/gen-api-perms.mjs` 的生成规则核对）：
+**决策（2026-09-08 实测后修正）**：客户端用**数据归属账号**登录（`admin` 或家庭成员本人的账号），**不建客户端专用账号**。原因：oak 的数据按 `user_id` 隔离，专用账号是全新用户、名下没有任何数据——实测用 `app` 账号登录 `/api/app/home` 返回全空（`children=0 todos=0 notices=0 notes=0`），与「App 要看到家庭数据」直接冲突。
+
+代价与缓解：App 持有的 token 与 Web 端会话同权，没有最小权限收敛。缓解手段是登录限流（R5）、token 存系统钥匙串、30 天有效期、账号停用即失效。**若将来 oak 支持多账号共享家庭数据，再回到「专用账号 + 最小权限角色」方案**——届时角色需勾的权限点如下（已按 `scripts/gen-api-perms.mjs` 的生成规则核对，保留备查）：
 
 - `api:app:home-get`
 - `api:children:list`
@@ -98,8 +100,6 @@ token 有效期沿用 30 天，客户端存入 Keychain / Keystore（`flutter_se
 - `api:todos:list`、`api:todos:toggle-post`
 - `api:reminders:list`、`api:reminders:logs-get`、`api:reminders:logs-read-post`
 - `api:upload:upload`
-
-不授予任何 delete/update 权限（待办勾选走 `toggle` 专用接口，`/api/todos/[id]` 只有 PUT/DELETE 且不开放）。
 
 加固项：
 
