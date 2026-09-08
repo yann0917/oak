@@ -23,7 +23,13 @@ export function verifyToken(token: string) {
   }
 }
 
+/** 优先读 Authorization: Bearer（原生客户端），回退 cookie（Web 端） */
 export function getTokenFromRequest(req: NextRequest) {
+  const header = req.headers.get("authorization") || "";
+  if (header) {
+    const bearer = header.replace(/^Bearer\s+/i, "").trim();
+    if (bearer) return bearer;
+  }
   return req.cookies.get("token")?.value || "";
 }
 
