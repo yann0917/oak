@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -21,6 +22,15 @@ export function verifyToken(token: string) {
   } catch {
     return null;
   }
+}
+
+/** 校验用户名密码（Web 登录与客户端登录共用）。失败返回 null。 */
+export function verifyCredentials(username: unknown, password: unknown): AuthUser | null {
+  if (typeof username !== "string" || typeof password !== "string") return null;
+  if (!username || !password) return null;
+  const user = db.select().from(users).where(eq(users.username, username)).get();
+  if (!user || !bcrypt.compareSync(password, user.passwordHash)) return null;
+  return user;
 }
 
 /** 优先读 Authorization: Bearer（原生客户端），回退 cookie（Web 端） */
