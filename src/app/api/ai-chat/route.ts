@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePerm } from "@/lib/auth";
+import { guard, RATE_LIMITS } from "@/lib/rateLimit";
 import { streamAgentChat } from "@/lib/ai-agent/chat";
 
 /**
@@ -11,6 +12,9 @@ export async function POST(req: NextRequest) {
   const { user, denied } = await requirePerm("ai-chat", "create", req);
   if (denied) return denied;
   if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+
+  const limited = guard(`ai:${user.id}`, RATE_LIMITS.ai);
+  if (limited) return limited;
 
   let body: { id?: unknown; messages?: unknown };
   try {
