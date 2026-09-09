@@ -40,6 +40,23 @@ interface SpeciesParts {
 
 const glbCache = new Map<string, Promise<SpeciesParts>>();
 
+// 模板资源登记表：three 的 clone() 让克隆实例与模板共享 geometry/material 引用，
+// 而模板在 glbCache 里跨重建/跨挂载复用，所以释放实例时必须跳过这些共享资源
+const templateGeometries = new WeakSet<THREE.BufferGeometry>();
+const templateMaterials = new WeakSet<THREE.Material>();
+
+/** 把 GLB 模板自有的几何体/材质登记为共享资源（克隆实例不得释放） */
+function registerTemplateResources(root: THREE.Object3D) {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    if (mesh.geometry) templateGeometries.add(mesh.geometry);
+    const material = mesh.material;
+    if (Array.isArray(material)) material.forEach((m) => templateMaterials.add(m));
+    else if (material) templateMaterials.add(material);
+  });
+}
+
 /** 加载物种 GLB（同一物种只请求一次），返回构件模板与实测高度 */
 function loadSpeciesParts(loader: GLTFLoader, file: string): Promise<SpeciesParts> {
   const cached = glbCache.get(file);
@@ -48,6 +65,7 @@ function loadSpeciesParts(loader: GLTFLoader, file: string): Promise<SpeciesPart
     const root = gltf.scene;
     const size = new THREE.Vector3();
     new THREE.Box3().setFromObject(root).getSize(size);
+    registerTemplateResources(root);
     return { parts: extractParts(root), bboxHeight: size.y };
   });
   glbCache.set(file, p);
@@ -104,14 +122,37 @@ function buildPlant(
   return group;
 }
 
-/** 释放植物克隆出的材质；几何体与 glbCache 里的模板共享，不能释放 */
-function disposePlant(plant: THREE.Object3D) {
-  plant.traverse((o) => {
+/** 释放材质（多材质网格逐个释放） */
+function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+  if (Array.isArray(material)) material.forEach((m) => m.dispose());
+  else material.dispose();
+}
+
+/**
+ * 释放 plantRoot 下克隆实例自有的 GPU 资源并清空。
+ * 几何体与模板共享（见 templateGeometries）不释放；材质是每株新建的，逐个释放。
+ * 可重复调用：清空后再遍历为空，且同一次遍历里同一资源只释放一次（seen 去重）。
+ */
+function disposePlants(root: THREE.Object3D) {
+  const seen = new Set<THREE.BufferGeometry | THREE.Material>();
+  root.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (mesh.isMesh && mesh.material instanceof THREE.MeshToonMaterial) {
-      mesh.material.dispose();
+    if (!mesh.isMesh) return;
+    const geometry = mesh.geometry;
+    if (geometry && !templateGeometries.has(geometry) && !seen.has(geometry)) {
+      seen.add(geometry);
+      geometry.dispose();
+    }
+    const material = mesh.material;
+    if (!material) return;
+    const materials = Array.isArray(material) ? material : [material];
+    for (const m of materials) {
+      if (templateMaterials.has(m) || seen.has(m)) continue;
+      seen.add(m);
+      m.dispose();
     }
   });
+  root.clear();
 }
 
 export default function GardenScene3D({
@@ -235,7 +276,15 @@ export default function GardenScene3D({
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
       controls.dispose();
+      // 本组件创建的 GPU 资源：地面与网格的几何体/材质，加上植物克隆实例的材质
+      ground.geometry.dispose();
+      disposeMaterial(ground.material);
+      grid.dispose(); // GridHelper.dispose() 会释放自己的 geometry 与 material
+      disposePlants(plantRoot);
+      // dispose() 只清 three 内部缓存，不释放 WebGL 上下文；Tabs 只渲染激活面板，
+      // 每次切 Tab 都会重建场景，不显式丢弃上下文会撞上浏览器上限（约 16 个）
       renderer.dispose();
+      renderer.forceContextLoss();
       host.removeChild(renderer.domElement);
       sceneRef.current = null;
     };
@@ -248,9 +297,8 @@ export default function GardenScene3D({
     let cancelled = false;
 
     const rebuild = async () => {
-      // 先释放上一批植物的材质，再清空；几何体与缓存模板共享，不释放
-      ctx.plantRoot.children.forEach(disposePlant);
-      ctx.plantRoot.clear();
+      // 先释放上一批植物的材质再清空；几何体与缓存模板共享，不释放
+      disposePlants(ctx.plantRoot);
       const uniqueSpecies = Array.from(new Set(plots.map((p) => p.species)));
       const loaded = await Promise.all(
         uniqueSpecies.map(async (key) => {
@@ -284,8 +332,7 @@ export default function GardenScene3D({
     void rebuild();
     return () => {
       cancelled = true;
-      ctx.plantRoot.children.forEach(disposePlant);
-      ctx.plantRoot.clear();
+      disposePlants(ctx.plantRoot);
     };
   }, [plots]);
 
