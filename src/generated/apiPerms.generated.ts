@@ -325,8 +325,18 @@ export const API_PERMS: ApiPermDef[] = [
   },
   {
     "resource": "garden-plots",
+    "perms": "api:garden-plots:create",
+    "label": "我的花园·新增"
+  },
+  {
+    "resource": "garden-plots",
     "perms": "api:garden-plots:list",
     "label": "我的花园·查看列表"
+  },
+  {
+    "resource": "garden-plots",
+    "perms": "api:garden-plots:update",
+    "label": "我的花园·修改"
   },
   {
     "resource": "garden-records",
