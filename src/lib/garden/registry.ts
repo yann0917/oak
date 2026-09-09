@@ -55,7 +55,7 @@ export const GARDEN_ACTIVITIES: ActivityMeta[] = [
   },
   {
     key: "poems",
-    name: "唐诗宋词",
+    name: "古诗花园",
     desc: "诗词接龙，把名句补充完整",
     glyph: "诗",
     color: "brown",
