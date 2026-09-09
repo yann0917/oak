@@ -20,6 +20,16 @@ const GardenScene3D = dynamic(() => import("@/components/garden/GardenScene3D"),
   loading: () => <div className="absolute inset-0 grid place-items-center text-sm">花园正在生长…</div>,
 });
 
+/** WebGL 探测：拿不到上下文就降级成列表，种植/浇水/收获照常可用 */
+function webglAvailable(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
 interface ItemRow {
   itemKey: string;
   count: number;
@@ -30,6 +40,8 @@ interface PlotsResponse {
     waterCount: number;
     stageStartedAt: string;
     plantedAt: string;
+    /** 到下一阶段还差多久（毫秒）；降级列表用它显示"还要 X 小时" */
+    remainingMs: number;
   })[];
   items: ItemRow[];
   now: number;
@@ -42,6 +54,12 @@ export default function GardenTab({ childId }: { childId: number }) {
   const [busy, setBusy] = useState(false);
   const [arranging, setArranging] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  // 默认乐观认为可渲染 3D；探测放到 effect 里（服务端没有 canvas）
+  const [canRender3D, setCanRender3D] = useState(true);
+
+  useEffect(() => {
+    setCanRender3D(webglAvailable());
+  }, []);
 
   const reload = useCallback(async () => {
     try {
@@ -135,13 +153,32 @@ export default function GardenTab({ childId }: { childId: number }) {
 
   return (
     <div className="relative h-[70vh] rounded-3xl overflow-hidden border-2" style={{ borderColor: "#e8dcc8" }}>
-      <GardenScene3D
-        plots={plots}
-        selectedId={selectedId}
-        arranging={arranging}
-        onSelect={setSelectedId}
-        onMoveSlot={(id, slot) => act({ action: "move", slot }, id)}
-      />
+      {canRender3D ? (
+        <GardenScene3D
+          plots={plots}
+          selectedId={selectedId}
+          arranging={arranging}
+          onSelect={setSelectedId}
+          onMoveSlot={(id, slot) => act({ action: "move", slot }, id)}
+        />
+      ) : (
+        <div className="absolute inset-0 overflow-y-auto px-4 pb-4 pt-14 grid gap-2 content-start">
+          <p className="text-sm" style={{ color: "var(--animal-text-color-secondary)" }}>
+            这台设备看不了 3D 花园，但种植和收获照样能用 🌱
+          </p>
+          {plots.map((p) => (
+            <Card key={p.id} onClick={() => setSelectedId(p.id)}>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{speciesMeta(p.species).emoji}</span>
+                <span className="font-bold">{p.nickname || speciesMeta(p.species).name}</span>
+                <Tag size="small" variant="soft">
+                  {p.stage >= 4 ? "可收获" : `${Math.ceil(p.remainingMs / 3600000)} 小时`}
+                </Tag>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* 库存栏 */}
       <div className="absolute top-3 left-3 flex gap-2 flex-wrap">

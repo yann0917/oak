@@ -48,8 +48,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
   const [records, setRecords] = useState<GardenRecord[]>([]);
   const [settings, setSettings] = useState<GardenSetting[]>([]);
   const [stage, setStage] = useState("全部");
-  // 临时：默认落在「我的花园」Tab（原默认 cards 已被临时替换，Task 14 一并恢复）
-  const [tab, setTab] = useState(initialTab === "records" ? "records" : "garden");
+  const [tab, setTab] = useState(initialTab === "records" ? "records" : "cards");
 
   useEffect(() => {
     if (memberId == null) return;
@@ -110,7 +109,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         activeKey={tab}
         onChange={(key) => setTab(key)}
         items={[
-          // 「我的花园」：读取真实地块数据并驱动种/浇水/收获
+          // 第一个 Tab「我的花园」：读取真实地块数据并驱动种/浇水/收获
           {
             key: "garden",
             label: "我的花园",
@@ -126,6 +125,7 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
                 <GardenTab childId={memberId} />
               ),
           },
+          { key: "cards", label: "学习卡片", children: renderCardsTab() },
           { key: "games", label: "益智游戏", children: <GamesMenu /> },
           { key: "records", label: "学习记录", children: renderRecordsTab() },
         ]}

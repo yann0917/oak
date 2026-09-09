@@ -32,6 +32,7 @@ import {
 } from "@/lib/garden/speech";
 import type { TtsVoice } from "@/lib/tts/voices";
 import { ACTIVITY_MAP, ACTIVITY_PALETTE } from "@/lib/garden/registry";
+import { speciesForActivity, speciesMeta } from "@/lib/garden/species";
 import { LEARN_SPEC } from "@/lib/garden/learn";
 import { BUILTIN_CHARACTERS } from "@/data/garden/characters";
 import { PINYIN_READ } from "@/data/garden/pinyin";
@@ -1119,6 +1120,10 @@ export default function GardenActivity({ type }: { type: string }) {
                 返回园地
               </Button>
             </div>
+            {/* 本轮成绩已入账（/api/garden-records 发放 1 颗种子 + 2 滴水滴） */}
+            <p className="text-sm mt-2" style={{ color: "var(--animal-text-color-secondary)" }}>
+              🌱 获得一颗{speciesMeta(speciesForActivity(type)).name}种子 + 2 滴水滴，去「我的花园」种下吧
+            </p>
           </div>
         </div>
       </div>
