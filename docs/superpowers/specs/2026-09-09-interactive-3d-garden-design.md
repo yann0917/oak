@@ -147,8 +147,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_items_key ON garden_items (child_id
 
 - 坐标系：glTF Y-up，根部原点 `(0,0,0)`，成株高度 0.4–1.2 m
 - 材质：Principled BSDF，只用 Base Color + Roughness，不导贴图；颜色取自 `ACTIVITY_PALETTE`
-- 造型：低多边形 + flat shading（贴合现有动森扁平粉彩）
-- 三角面预算：单构件 ≤ 300 tris，单物种 ≤ 1000 tris
+- 造型：低多边形 + 曲面平滑着色（轮廓清晰、表面圆润，避免硬边几何块感）
+- 三角面预算：单构件 ≤ 1200 tris，单物种 ≤ 3000 tris（花园最多 36 株，18 万面量级对任何设备都轻松；早期 300/1000 的预算过紧，会把模型压成几何块）
 - 压缩：Meshopt（实测 65 KB → 28 KB；Draco 更小但 decoder 体积大得多，不划算）
 - 输出：`public/models/garden/<species>.glb`，与既有 `public/models/*.task` 一样入库 git
 
