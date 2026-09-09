@@ -167,13 +167,13 @@ npm start        # 访问 http://localhost:3000
 
 **默认账号**：`admin` / `admin123`（首次启动自动创建，登录后建议在数据库中修改密码）
 
-**环境要求**：Node.js 20.9+（Next.js 16 要求）
+**环境要求**：Node.js 22+（Next.js 16 要求；`npm test` 的 `src/**/*.test.ts` 通配展开也需 Node ≥ 22）
 
 ## 部署到服务器
 
 GitHub Actions（`.github/workflows/build-deploy.yml`）负责 **构建 + 部署**：推送 `main` 分支（或在 Actions 页面手动触发）后自动构建 **standalone 独立部署包**（自带按需裁剪的 node_modules，压缩包约 65MB）并 scp 到服务器 `/opt/oak/` 解压覆盖，再 `docker exec` 进容器 `pm2 reload` 生效，**服务器上不执行 npm install**。构建产物同时上传为 `oak-dist` 制品：**部署成功后自动删除**（省存储额度），**部署失败时保留 14 天**，可 `gh run download -n oak-dist` 下载排查。
 
-> **服务器系统要求：Ubuntu 22.04+ / Debian 12+**。better-sqlite3 的预编译模块需要 glibc ≥ 2.34（Ubuntu 20.04 的 2.31、CentOS 7 的 2.17 都不满足），Node 22 官方包也要求 glibc ≥ 2.28。服务器另需 Docker；容器镜像基于 Node.js 20.9+（AI 功能要求 Node ≥ 22）。
+> **服务器系统要求：Ubuntu 22.04+ / Debian 12+**。better-sqlite3 的预编译模块需要 glibc ≥ 2.34（Ubuntu 20.04 的 2.31、CentOS 7 的 2.17 都不满足），Node 22 官方包也要求 glibc ≥ 2.28。服务器另需 Docker；容器镜像基于 Node.js 22+（AI 功能要求 Node ≥ 22）。
 
 ### 手动部署步骤
 

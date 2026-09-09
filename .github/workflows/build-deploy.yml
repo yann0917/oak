@@ -51,9 +51,13 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: |
-          npm install
-          npm run build
+      - run: npm install
+
+      # 单元测试（node --test 的 glob 展开需 Node ≥ 22；本 workflow 已固定 Node 24）
+      - name: 单元测试
+        run: npm test
+
+      - run: npm run build
 
       - name: 组装部署包
         run: |
