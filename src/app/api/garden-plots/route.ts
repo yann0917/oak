@@ -6,6 +6,7 @@ import { requirePerm } from "@/lib/auth";
 import { advance, type Stage } from "@/lib/garden/growth";
 import { PLOT_CAPACITY } from "@/lib/garden/plotLayout";
 import { ensureStarterItems, readItems, seedKey } from "@/lib/garden/inventory";
+import { assertChildOwnership } from "@/lib/garden/ownership";
 import { SPECIES } from "@/lib/garden/species";
 
 // GET 花园状态：读取时按服务端时间惰性推进生长阶段 + 首次访问初始化库存
@@ -13,10 +14,14 @@ export async function GET(req: NextRequest) {
   const { user, denied } = await requirePerm("garden-plots", "list", req);
   if (denied) return denied;
 
-  const childId = Number(new URL(req.url).searchParams.get("childId"));
-  if (!childId) {
+  const rawChildId = new URL(req.url).searchParams.get("childId");
+  if (!rawChildId) {
     return NextResponse.json({ error: "缺少 childId 参数" }, { status: 400 });
   }
+  const childId = Number(rawChildId);
+  // 任何读写前先确认成员归属：否则 ensureStarterItems 会按别人的 childId 建行
+  const childErr = assertChildOwnership(user!.id, childId);
+  if (childErr) return NextResponse.json({ error: childErr }, { status: 400 });
 
   const now = Date.now();
   const rows = db
@@ -48,7 +53,9 @@ export async function GET(req: NextRequest) {
           and(
             eq(gardenPlots.id, r.id),
             eq(gardenPlots.stage, r.stage),
-            eq(gardenPlots.stageStartedAt, r.stageStartedAt)
+            eq(gardenPlots.stageStartedAt, r.stageStartedAt),
+            // 同时比对浇水次数：读到这里期间若被并发浇水，本条件不成立，不覆盖对方的结果
+            eq(gardenPlots.waterCount, r.waterCount)
           )
         )
         .run();
@@ -88,7 +95,15 @@ export async function POST(req: NextRequest) {
   const childId = Number(body.childId);
   const slot = Number(body.slot);
   const species = String(body.species || "");
-  if (!childId || !Number.isInteger(slot) || slot < 0 || slot >= PLOT_CAPACITY || !SPECIES[species]) {
+  // 归属校验先于任何读写；Object.hasOwn 避免 "__proto__"/"constructor" 命中原型链
+  const childErr = assertChildOwnership(user!.id, childId);
+  if (childErr) return NextResponse.json({ error: childErr }, { status: 400 });
+  if (
+    !Number.isInteger(slot) ||
+    slot < 0 ||
+    slot >= PLOT_CAPACITY ||
+    !Object.hasOwn(SPECIES, species)
+  ) {
     return NextResponse.json({ error: "参数不完整" }, { status: 400 });
   }
 

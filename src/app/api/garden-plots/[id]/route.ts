@@ -6,6 +6,7 @@ import { requirePerm } from "@/lib/auth";
 import { advance, water, type Stage } from "@/lib/garden/growth";
 import { PLOT_CAPACITY } from "@/lib/garden/plotLayout";
 import { WATER, bumpItem, fruitKey } from "@/lib/garden/inventory";
+import { assertChildOwnership } from "@/lib/garden/ownership";
 
 const MAX_NICKNAME = 12;
 
@@ -32,6 +33,8 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
       .where(and(eq(gardenPlots.id, plotId), eq(gardenPlots.userId, user!.id)))
       .get();
     if (!row) return { error: "地块不存在", status: 404 };
+    // 防御历史脏行：地块的 childId 必须属于当前用户，否则一律按不存在处理
+    if (assertChildOwnership(user!.id, row.childId)) return { error: "地块不存在", status: 404 };
 
     const grown = advance(
       {
