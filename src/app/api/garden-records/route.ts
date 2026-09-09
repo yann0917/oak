@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { gardenRecords, gardenMastery } from "@/db/schema";
 import { requirePerm } from "@/lib/auth";
 import { ACTIVITY_KEYS, GAME_KEYS, type ActivityKey, type GameKey } from "@/lib/garden/types";
+import { speciesForActivity } from "@/lib/garden/species";
+import { SEED_PER_SESSION, WATER, WATER_PER_SESSION, bumpItem, seedKey } from "@/lib/garden/inventory";
 
 // GET 练习记录列表：?childId= 必填，?activity= 可选
 export async function GET(req: NextRequest) {
@@ -113,6 +115,10 @@ export async function POST(req: NextRequest) {
           .run();
       }
     }
+    // 学习园地：练习产出花园库存（种子按活动决定物种 + 水滴）
+    bumpItem(tx, user!.id, childId, seedKey(speciesForActivity(activity)), SEED_PER_SESSION, now);
+    bumpItem(tx, user!.id, childId, WATER, WATER_PER_SESSION, now);
+
     return inserted;
   });
 
