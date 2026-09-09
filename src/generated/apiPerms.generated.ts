@@ -324,6 +324,11 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "知识掌握度·查看列表"
   },
   {
+    "resource": "garden-plots",
+    "perms": "api:garden-plots:list",
+    "label": "我的花园·查看列表"
+  },
+  {
     "resource": "garden-records",
     "perms": "api:garden-records:create",
     "label": "练习记录·新增"

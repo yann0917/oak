@@ -40,6 +40,7 @@ const RESOURCE_LABELS = {
   "family-sops": "家庭指南",
   "garden-characters": "识字字库",
   "garden-mastery": "知识掌握度",
+  "garden-plots": "我的花园",
   "garden-records": "练习记录",
   "garden-settings": "练习配置",
   "growth-records": "成长记录",
