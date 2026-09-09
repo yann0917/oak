@@ -46,9 +46,13 @@ export const ACTIVITY_SPECIES: Record<ActivityKey | GameKey, string> = {
 };
 
 export function speciesForActivity(activity: string): string {
-  return ACTIVITY_SPECIES[activity as ActivityKey | GameKey] ?? DEFAULT_SPECIES;
+  // Object.hasOwn：ACTIVITY_SPECIES 是普通对象，["__proto__"]/["constructor"] 会命中原型链
+  return Object.hasOwn(ACTIVITY_SPECIES, activity)
+    ? ACTIVITY_SPECIES[activity as ActivityKey | GameKey]
+    : DEFAULT_SPECIES;
 }
 
 export function speciesMeta(key: string): SpeciesMeta {
-  return SPECIES[key] ?? SPECIES[DEFAULT_SPECIES];
+  // 同上：SPECIES["__proto__"] 是 Object.prototype（真值），不能直接用它判存在
+  return Object.hasOwn(SPECIES, key) ? SPECIES[key] : SPECIES[DEFAULT_SPECIES];
 }

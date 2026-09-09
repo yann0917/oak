@@ -49,7 +49,14 @@ export function advance(state: GrowthState, now: number): GrowthResult {
   }
 
   const remainingMs =
-    stage >= 4 ? 0 : Math.max(0, stageDuration(stage, waterCount) - (now - stageStartedAt));
+    stage >= 4
+      ? 0
+      : // 上限封顶在当前阶段净时长：stageStartedAt 被写成未来时间时 now - stageStartedAt 为负，
+        // 不封顶会算出比阶段总时长还大的剩余时间（前端"还要 X 小时"随之虚高）
+        Math.min(
+          stageDuration(stage, waterCount),
+          Math.max(0, stageDuration(stage, waterCount) - (now - stageStartedAt))
+        );
   return { stage, stageStartedAt, waterCount, changed, remainingMs };
 }
 

@@ -59,6 +59,19 @@ test("advance：封顶在结果阶段，不再推进", () => {
   assert.equal(again.changed, false);
 });
 
+test("advance：stageStartedAt 在未来（时钟回拨）时 remainingMs 封顶在本阶段时长", () => {
+  // 成长阶段净时长 4h，起点在未来 10h：不封顶会算出 14h
+  const future = state({ stage: 1, stageStartedAt: T0 + 10 * H });
+  const r = advance(future, T0);
+  assert.equal(r.stage, 1);
+  assert.equal(r.changed, false);
+  assert.equal(r.remainingMs, stageDuration(1, 0));
+  // 浇水过的阶段同样按净时长封顶
+  const wateredFuture = state({ stage: 2, waterCount: 1, stageStartedAt: T0 + 5 * H });
+  const w = advance(wateredFuture, T0);
+  assert.equal(w.remainingMs, stageDuration(2, 1));
+});
+
 test("advance：浇水减免会提前推进", () => {
   const r = advance(state({ waterCount: 1 }), T0);
   assert.equal(r.stage, 1);

@@ -22,3 +22,22 @@ test("speciesMeta：未知 key 回退，且始终返回有效元数据", () => {
   assert.ok(m.file.length > 0);
   assert.ok(m.height > 0);
 });
+
+// 原型链键：SPECIES["__proto__"] 是 Object.prototype（真值），必须用 Object.hasOwn 挡掉
+test("speciesMeta：原型链键（__proto__/constructor/toString）回退到默认物种", () => {
+  for (const key of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
+    const m = speciesMeta(key);
+    assert.equal(m.key, DEFAULT_SPECIES, `speciesMeta(${key}) 应回退到默认物种`);
+    assert.equal(m.name, SPECIES[DEFAULT_SPECIES].name);
+  }
+});
+
+test("speciesForActivity：原型链键（__proto__/constructor）回退到默认物种", () => {
+  for (const key of ["__proto__", "constructor", "toString"]) {
+    assert.equal(
+      speciesForActivity(key),
+      DEFAULT_SPECIES,
+      `speciesForActivity(${key}) 应回退到默认物种`
+    );
+  }
+});
