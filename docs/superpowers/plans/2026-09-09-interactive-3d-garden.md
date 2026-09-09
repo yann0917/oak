@@ -1088,6 +1088,51 @@ export function ensureStarterItems(userId: number, childId: number) {
     ])
     .run();
 }
+
+/** 事务类型：drizzle 的 tx 不能赋给 typeof db（缺 $client），单独提取 */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * 事务内自增库存（可为负）。
+ * 种植扣种子、浇水扣水滴、收获加果实、练习产出都用它，必须在调用方的事务里执行。
+ */
+export function bumpItem(
+  tx: Tx,
+  userId: number,
+  childId: number,
+  key: string,
+  delta: number,
+  nowIso: string
+) {
+  const existing = tx
+    .select()
+    .from(gardenItems)
+    .where(
+      and(
+        eq(gardenItems.userId, userId),
+        eq(gardenItems.childId, childId),
+        eq(gardenItems.itemKey, key)
+      )
+    )
+    .get();
+  if (existing) {
+    tx.update(gardenItems)
+      .set({ count: Math.max(0, existing.count + delta), updatedAt: nowIso })
+      .where(eq(gardenItems.id, existing.id))
+      .run();
+  } else {
+    tx.insert(gardenItems)
+      .values({
+        userId,
+        childId,
+        itemKey: key,
+        count: Math.max(0, delta),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      })
+      .run();
+  }
+}
 ```
 
 - [ ] **Step 2: 写 GET 路由**
@@ -1476,46 +1521,13 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
   return NextResponse.json(result);
 }
 
-/** 事务内自增库存：drizzle 的 tx 不能传给接受 typeof db 的函数，所以单独取 tx 类型 */
-function bumpItem(
-  tx: Tx,
-  userId: number,
-  childId: number,
-  key: string,
-  delta: number,
-  nowIso: string
-) {
-  const existing = tx
-    .select()
-    .from(gardenItems)
-    .where(
-      and(
-        eq(gardenItems.userId, userId),
-        eq(gardenItems.childId, childId),
-        eq(gardenItems.itemKey, key)
-      )
-    )
-    .get();
-  if (existing) {
-    tx.update(gardenItems)
-      .set({ count: existing.count + delta, updatedAt: nowIso })
-      .where(eq(gardenItems.id, existing.id))
-      .run();
-  } else {
-    tx.insert(gardenItems)
-      .values({ userId, childId, itemKey: key, count: delta, createdAt: nowIso, updatedAt: nowIso })
-      .run();
-  }
-}
-```
-
-**注意** `bumpItem` 的 `tx` 参数类型不要写成 `typeof db`（缺 `$client`，类型不兼容，已实测）。在文件顶部加：
+库存自增用 Task 6 的共享助手 `bumpItem(tx, ...)`，**不要**在本文件重新定义。改 import 行：
 
 ```ts
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+import { WATER, bumpItem, fruitKey } from "@/lib/garden/inventory";
 ```
 
-这个写法已验证可编译（`db.transaction` 不是重载签名，`Parameters` 能正确取出 tx 类型）。
+**为什么不在事务里调用 `typeof db` 的助手**：drizzle 的 `tx` 缺 `$client`，不能赋给 `typeof db`（已实测）。`bumpItem` 的参数类型是 `Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]`，已验证可编译。
 
 - [ ] **Step 2: 手动验证四个动作**
 
@@ -1584,41 +1596,8 @@ git commit -m "feat(garden): 浇水/收获/改名/挪位接口"
 
 ```ts
     // 学习园地：练习产出花园库存（种子按活动决定物种 + 水滴）
-    const nowIso = now;
-    const seedItemKey = seedKey(speciesForActivity(activity));
-    for (const [key, delta] of [
-      [seedItemKey, SEED_PER_SESSION],
-      [WATER, WATER_PER_SESSION],
-    ] as const) {
-      const existing = tx
-        .select()
-        .from(gardenItems)
-        .where(
-          and(
-            eq(gardenItems.userId, user!.id),
-            eq(gardenItems.childId, childId),
-            eq(gardenItems.itemKey, key)
-          )
-        )
-        .get();
-      if (existing) {
-        tx.update(gardenItems)
-          .set({ count: existing.count + delta, updatedAt: nowIso })
-          .where(eq(gardenItems.id, existing.id))
-          .run();
-      } else {
-        tx.insert(gardenItems)
-          .values({
-            userId: user!.id,
-            childId,
-            itemKey: key,
-            count: delta,
-            createdAt: nowIso,
-            updatedAt: nowIso,
-          })
-          .run();
-      }
-    }
+    bumpItem(tx, user!.id, childId, seedKey(speciesForActivity(activity)), SEED_PER_SESSION, now);
+    bumpItem(tx, user!.id, childId, WATER, WATER_PER_SESSION, now);
 ```
 
 并在文件顶部补 import：
@@ -1626,8 +1605,10 @@ git commit -m "feat(garden): 浇水/收获/改名/挪位接口"
 ```ts
 import { gardenItems, gardenRecords, gardenMastery } from "@/db/schema";
 import { speciesForActivity } from "@/lib/garden/species";
-import { SEED_PER_SESSION, WATER, WATER_PER_SESSION, seedKey } from "@/lib/garden/inventory";
+import { SEED_PER_SESSION, WATER, WATER_PER_SESSION, bumpItem, seedKey } from "@/lib/garden/inventory";
 ```
+
+（`gardenItems` 只为 `bumpItem` 所在的模块服务，本文件若不直接用它可以不导入；以 lint 结果为准。）
 
 - [ ] **Step 2: 手动验证**
 
