@@ -19,6 +19,8 @@ export interface PlotView {
 
 export interface GardenScene3DProps {
   plots: PlotView[];
+  /** 当前选中的地块 id；选中株带黄色光圈 */
+  selectedId?: number | null;
   arranging?: boolean;
   onSelect?: (id: number | null) => void;
   onMoveSlot?: (id: number, slot: number) => void;
@@ -155,8 +157,20 @@ function disposePlants(root: THREE.Object3D) {
   root.clear();
 }
 
+/** 从被射线命中的对象向上找所属地块：植物是嵌套 Group，命中的往往是深层网格 */
+function findPlotId(obj: THREE.Object3D): number | null {
+  let cur: THREE.Object3D | null = obj;
+  while (cur) {
+    const id = cur.userData?.plotId;
+    if (typeof id === "number") return id;
+    cur = cur.parent;
+  }
+  return null;
+}
+
 export default function GardenScene3D({
   plots,
+  selectedId = null,
   arranging = false,
   onSelect,
   onMoveSlot,
@@ -172,6 +186,11 @@ export default function GardenScene3D({
     plantRoot: THREE.Group;
     loader: GLTFLoader;
   } | null>(null);
+  // 拾取回调存 ref：场景初始化 effect 只跑一次，直接闭包会捕获首次渲染的旧回调
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -235,6 +254,21 @@ export default function GardenScene3D({
 
     sceneRef.current = { renderer, scene, camera, controls, ground, plantRoot, loader };
 
+    // 射线拾取：点植物选中，点空地取消选中（只改选中态，不做任何写操作）
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const onClick = (e: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      // 递归命中子网格：花/果/叶都能点中，再向上回溯到地块 id
+      const hits = raycaster.intersectObjects(plantRoot.children, true);
+      const hit = hits.find((h) => findPlotId(h.object) != null);
+      onSelectRef.current?.(hit ? findPlotId(hit.object) : null);
+    };
+    renderer.domElement.addEventListener("pointerdown", onClick);
+
     let raf = 0;
     let running = true;
     const clock = new THREE.Clock();
@@ -275,6 +309,7 @@ export default function GardenScene3D({
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
+      renderer.domElement.removeEventListener("pointerdown", onClick);
       controls.dispose();
       // 本组件创建的 GPU 资源：地面与网格的几何体/材质，加上植物克隆实例的材质
       ground.geometry.dispose();
@@ -326,6 +361,17 @@ export default function GardenScene3D({
         plant.position.set(x, 0, z);
         plant.userData = { plotId: p.id, slot: p.slot, stage: p.stage, species: p.species };
         ctx.plantRoot.add(plant);
+
+        // 选中光圈：平贴地面的黄色圆环，随植物一起被重建/释放
+        if (p.id === selectedId) {
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(TILE * 0.32, TILE * 0.4, 24),
+            new THREE.MeshBasicMaterial({ color: 0xffd85e, transparent: true, opacity: 0.85 })
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.y = 0.02;
+          plant.add(ring);
+        }
       }
     };
 
@@ -334,7 +380,7 @@ export default function GardenScene3D({
       cancelled = true;
       disposePlants(ctx.plantRoot);
     };
-  }, [plots]);
+  }, [plots, selectedId]);
 
   return <div ref={hostRef} className="absolute inset-0" aria-label="3D 花园" role="img" />;
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { Card, Tag, Title, Tabs } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { MemberFilter, useMemberSelect } from "@/components/MemberFilter";
@@ -16,9 +15,7 @@ import {
 import { GAME_MAP } from "@/lib/games/registry";
 import { formatDuration } from "@/lib/garden/types";
 import GamesMenu from "@/components/games/GamesMenu";
-
-// 临时挂载点（Task 10 验证用）：Task 14 会换成读取真实花园数据
-const GardenScene3D = dynamic(() => import("@/components/garden/GardenScene3D"), { ssr: false });
+import GardenTab from "@/components/garden/GardenTab";
 
 // 动态颜色一律走 Chip（color 为 any）；静态颜色才用 Tag 字面量
 const DIFF_COLOR: Record<string, string> = {
@@ -113,15 +110,21 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         activeKey={tab}
         onChange={(key) => setTab(key)}
         items={[
-          // 临时：第一个 Tab 换成 3D 场景（Task 10 验证用，Task 14 替换为真实数据）
+          // 「我的花园」：读取真实地块数据并驱动种/浇水/收获
           {
             key: "garden",
             label: "我的花园",
-            children: (
-              <div className="relative h-[60vh] rounded-3xl overflow-hidden border-2" style={{ borderColor: "#e8dcc8" }}>
-                <GardenScene3D plots={[]} />
-              </div>
-            ),
+            children:
+              memberId == null ? (
+                <p
+                  className="text-center py-20 text-sm"
+                  style={{ color: "var(--animal-text-color-secondary)" }}
+                >
+                  请先在右上角选择一个成员
+                </p>
+              ) : (
+                <GardenTab childId={memberId} />
+              ),
           },
           { key: "games", label: "益智游戏", children: <GamesMenu /> },
           { key: "records", label: "学习记录", children: renderRecordsTab() },
