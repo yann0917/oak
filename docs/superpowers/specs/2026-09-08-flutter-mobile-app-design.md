@@ -90,7 +90,9 @@ token 有效期沿用 30 天，客户端存入 Keychain / Keystore（`flutter_se
 
 ### R4 权限与安全
 
-新建客户端专用账号，绑定最小权限角色，只勾选（权限点名已按 `scripts/gen-api-perms.mjs` 的生成规则核对）：
+**决策（2026-09-08 实测后修正）**：客户端用**数据归属账号**登录（`admin` 或家庭成员本人的账号），**不建客户端专用账号**。原因：oak 的数据按 `user_id` 隔离，专用账号是全新用户、名下没有任何数据——实测用 `app` 账号登录 `/api/app/home` 返回全空（`children=0 todos=0 notices=0 notes=0`），与「App 要看到家庭数据」直接冲突。
+
+代价与缓解：App 持有的 token 与 Web 端会话同权，没有最小权限收敛。缓解手段是登录限流（R5）、token 存系统钥匙串、30 天有效期、账号停用即失效。**若将来 oak 支持多账号共享家庭数据，再回到「专用账号 + 最小权限角色」方案**——届时角色需勾的权限点如下（已按 `scripts/gen-api-perms.mjs` 的生成规则核对，保留备查）：
 
 - `api:app:home-get`
 - `api:children:list`
@@ -98,8 +100,6 @@ token 有效期沿用 30 天，客户端存入 Keychain / Keystore（`flutter_se
 - `api:todos:list`、`api:todos:toggle-post`
 - `api:reminders:list`、`api:reminders:logs-get`、`api:reminders:logs-read-post`
 - `api:upload:upload`
-
-不授予任何 delete/update 权限（待办勾选走 `toggle` 专用接口，`/api/todos/[id]` 只有 PUT/DELETE 且不开放）。
 
 加固项：
 
@@ -161,18 +161,19 @@ L3 挂在 `requirePerm` 这一个统一入口上，改动只有一处；阈值�
 | 选图拍照 | `image_picker` ^1.2 | 拍照 + 相册 |
 | 图片展示 | `cached_network_image` | 列表图片缓存，避免滚动重复下载 |
 | 日期 | `intl` | 中文日期与相对时间 |
-| 模型 | `freezed` ^3 + `json_serializable` + `build_runner` | 不可变模型、`fromJson`、`copyWith`；接口变多后收益更大 |
+| 模型 | `freezed` ^4 + `json_serializable` + `build_runner` | 不可变模型、`fromJson`、`copyWith`；**必须 ≥ 4.0.1**：3.2.5 在 Dart 3.13 上会生成非法的 `final` 构造参数 |
 | 测试 | `mocktail` + `http_mock_adapter` | dio 的 mock |
 
 明确不引入：本地数据库（drift/isar/hive，M1 无离线需求）、`get_it`（Riverpod 即 DI 容器）、`flutter_dotenv`（baseUrl 用 `--dart-define`）、Bloc（规模不需要）、GetX（不推荐）。
 
-**freezed 3.x 语法要点**（与 2.x 差异大，网上旧教程会误导）：
+**freezed 4.x 语法要点**（4.0 只改了「构造参数里不能再用 `final`」，其余与 3.x 相同；网上旧教程会误导）：
 
 - 单构造用 `abstract class`，多构造联合类型用 `sealed class`，都必须带 `with _$X`
 - 两个 part：`part 'x.freezed.dart';` 与 `part 'x.g.dart';`
 - `fromJson` 必须用 `=>` 箭头写法才会生成：`factory X.fromJson(Map<String, dynamic> json) => _$XFromJson(json);`
 - `.map()` / `.when()` 已移除，改用 Dart 3 原生 `switch` 模式匹配
 - 生成命令：`dart run build_runner build --delete-conflicting-outputs`（改字段后重跑；开发时用 `watch` 更顺手）
+- **版本下限**：freezed ≥ 4.0.1。3.2.5 在 Dart 3.13 上会为集合字段生成 `const _X({final List<T> items = ...})` 这种非法参数，报错形如 *"Try removing 'final'"*——升到 4.0.1 即可（4.0 的唯一破坏性变更就是移除该语法）
 
 **依赖位置**（放错会导致编译期找不到注解）：`freezed_annotation`、`json_annotation` 在 `dependencies`；`freezed`、`json_serializable`、`build_runner` 在 `dev_dependencies`。
 
