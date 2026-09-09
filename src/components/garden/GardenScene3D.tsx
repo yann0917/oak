@@ -238,7 +238,9 @@ export default function GardenScene3D({
       0.1,
       200
     );
-    camera.position.set(0, 9, 10);
+    // 初始机位：同俯角、比原来的 (0,9,10) 近 22%，让 1 格高的植物在默认视角下
+    // 也有足够像素可辨认/点中；6×6 地块与四周地面仍完整在画面内
+    camera.position.set(0, 7.6, 8.4);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 0.4, 0);
@@ -458,9 +460,10 @@ export default function GardenScene3D({
         const entry = bySpecies.get(p.species);
         if (!entry) continue;
         const { x, z } = slotToPosition(p.slot);
-        // 成株高度归一化到格子的 0.6 倍：按 GLB 实测包围盒高度缩放，
-        // 不用 species.height（声明值比模型实际高 11~15%）
-        const scale = (TILE * 0.6) / entry.bboxHeight;
+        // 成株高度归一化到一格高（TILE * 1.0）：按 GLB 实测包围盒高度缩放，
+        // 不用 species.height（声明值比模型实际高 11~15%）。
+        // 原来只有 0.6 格高，默认视角下幼苗只剩几个像素，孩子看不清也点不中
+        const scale = (TILE * 1.0) / entry.bboxHeight;
         const plant = buildPlant(entry.parts, p.stage, scale);
         plant.position.set(x, 0, z);
         plant.userData = { plotId: p.id, slot: p.slot, stage: p.stage, species: p.species };
