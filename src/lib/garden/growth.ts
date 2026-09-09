@@ -53,6 +53,33 @@ export function advance(state: GrowthState, now: number): GrowthResult {
   return { stage, stageStartedAt, waterCount, changed, remainingMs };
 }
 
+/**
+ * 距离结果（可收获）还差多少毫秒：当前阶段剩余 + 之后各阶段的基础时长。
+ * 与 advance().remainingMs（只算到下一阶段）不同，浇水会让阶段提前推进，
+ * 但到成熟的总时长只会减少——信息卡用它显示"还要 X 小时"才不会因为浇水变大。
+ * 后续阶段按未浇水计算：浇水次数在阶段推进时清零。
+ */
+export function remainingToRipe(state: GrowthState, now: number): number {
+  let stage = state.stage;
+  let stageStartedAt = state.stageStartedAt;
+  let waterCount = state.waterCount;
+
+  while (stage < 4) {
+    const need = stageDuration(stage, waterCount);
+    const left = need - (now - stageStartedAt);
+    if (left > 0) {
+      let total = left;
+      for (let s = stage + 1; s < 4; s++) total += STAGE_MS[s];
+      return total;
+    }
+    // 当前阶段已走完（调用方漏了 advance 时的兜底）：继续算下一阶段
+    stageStartedAt += need;
+    stage = (stage + 1) as Stage;
+    waterCount = 0;
+  }
+  return 0;
+}
+
 /** 浇水：返回新状态；阶段已结果或次数用尽时返回 null */
 export function water(state: GrowthState): GrowthState | null {
   if (state.stage >= 4) return null;

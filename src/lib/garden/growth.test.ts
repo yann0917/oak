@@ -6,6 +6,7 @@ import {
   stageDuration,
   advance,
   water,
+  remainingToRipe,
   type GrowthState,
 } from "./growth";
 
@@ -83,4 +84,31 @@ test("water：每次 +1，达到上限返回 null", () => {
 
 test("water：结果阶段不能再浇", () => {
   assert.equal(water(state({ stage: 4 })), null);
+});
+
+test("remainingToRipe：当前阶段剩余 + 之后各阶段基础时长（结果阶段 0）", () => {
+  assert.equal(remainingToRipe(state(), T0), 18 * H); // 2+4+6+6
+  assert.equal(remainingToRipe(state(), T0 + 1 * H), 17 * H);
+  assert.equal(remainingToRipe(state({ stage: 2, waterCount: 1 }), T0 + 1 * H), 9 * H); // 4-1+6
+  assert.equal(remainingToRipe(state({ stage: 4 }), T0 + 100 * H), 0);
+});
+
+test("remainingToRipe：浇水后只会变小（阶段提前推进但总量减少）", () => {
+  const before = state();
+  const r0 = remainingToRipe(before, T0);
+  // 浇一次水：幼苗阶段净时长被减到 0，服务端 advance 直接推进到成长阶段
+  const watered = water(before)!;
+  const advanced = advance({ ...before, ...watered }, T0);
+  assert.equal(advanced.stage, 1);
+  const r1 = remainingToRipe(
+    { stage: advanced.stage, stageStartedAt: advanced.stageStartedAt, waterCount: advanced.waterCount },
+    T0
+  );
+  assert.equal(r1, 16 * H);
+  assert.ok(r1 < r0, `浇水后 ${r1} 应小于 ${r0}`);
+});
+
+test("remainingToRipe：now 已越过当前阶段时兜底继续往后算", () => {
+  // 调用方漏了 advance：stage 0 起点 T0，现在已是 T0+3h（应推进到 stage 1 的 1h 处）
+  assert.equal(remainingToRipe(state(), T0 + 3 * H), 15 * H); // 4-1+6+6
 });

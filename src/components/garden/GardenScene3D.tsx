@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
-import { PLOT_COLS, PLOT_ROWS, TILE, slotToPosition } from "@/lib/garden/plotLayout";
+import { PLOT_COLS, PLOT_ROWS, TILE, positionToSlot, slotToPosition } from "@/lib/garden/plotLayout";
 import { speciesMeta } from "@/lib/garden/species";
 import { partTransforms } from "@/lib/garden/plantVisual";
 
@@ -23,7 +23,8 @@ export interface GardenScene3DProps {
   selectedId?: number | null;
   arranging?: boolean;
   onSelect?: (id: number | null) => void;
-  onMoveSlot?: (id: number, slot: number) => void;
+  /** 拖动落位回调；返回 Promise 时，resolve 为 false 表示落库失败，场景会复位 */
+  onMoveSlot?: (id: number, slot: number) => void | Promise<unknown>;
 }
 
 const SKY = 0xcdebf6;
@@ -188,9 +189,18 @@ export default function GardenScene3D({
   } | null>(null);
   // 拾取回调存 ref：场景初始化 effect 只跑一次，直接闭包会捕获首次渲染的旧回调
   const onSelectRef = useRef(onSelect);
+  // 整理模式开关与落位回调同理存 ref，避免场景初始化 effect 依赖它们反复重建
+  const arrangingRef = useRef(arranging);
+  const onMoveSlotRef = useRef(onMoveSlot);
+  /** 正在拖动的地块 id；null 表示没有拖动 */
+  const draggingRef = useRef<number | null>(null);
+  /** plots effect 里的重建函数：拖动落点无效时用它把植物复位 */
+  const rebuildRef = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
     onSelectRef.current = onSelect;
-  }, [onSelect]);
+    arrangingRef.current = arranging;
+    onMoveSlotRef.current = onMoveSlot;
+  }, [onSelect, arranging, onMoveSlot]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -257,17 +267,86 @@ export default function GardenScene3D({
     // 射线拾取：点植物选中，点空地取消选中（只改选中态，不做任何写操作）
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const onClick = (e: PointerEvent) => {
+    // 地面平面（y=0）：拖动时求射线与它的交点作为落点
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    /** 屏幕坐标 → 归一化设备坐标 + 射线（复用同一个 pointer 向量） */
+    const castFromScreen = (clientX: number, clientY: number) => {
       const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
+    };
+
+    /** 屏幕坐标 → 地面交点；相机几乎与地面平行时可能无交点，返回 null */
+    const intersectGround = (clientX: number, clientY: number) => {
+      castFromScreen(clientX, clientY);
+      const point = new THREE.Vector3();
+      return raycaster.ray.intersectPlane(dragPlane, point) ? point : null;
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      castFromScreen(e.clientX, e.clientY);
       // 递归命中子网格：花/果/叶都能点中，再向上回溯到地块 id
       const hits = raycaster.intersectObjects(plantRoot.children, true);
       const hit = hits.find((h) => findPlotId(h.object) != null);
-      onSelectRef.current?.(hit ? findPlotId(hit.object) : null);
+      const hitId = hit ? findPlotId(hit.object) : null;
+
+      // 整理模式按住植物（仅主键/触摸）：进入拖动。拖动期间禁用相机、不改选中态
+      if (e.button === 0 && arrangingRef.current && hitId != null) {
+        // 指针移出画布也要收到 move/up（浏览器在 pointerup/cancel 时自动释放捕获）
+        renderer.domElement.setPointerCapture(e.pointerId);
+        draggingRef.current = hitId;
+        controls.enabled = false;
+        return;
+      }
+      onSelectRef.current?.(hitId);
     };
-    renderer.domElement.addEventListener("pointerdown", onClick);
+
+    const onPointerMove = (e: PointerEvent) => {
+      const id = draggingRef.current;
+      if (id == null) return;
+      const p = intersectGround(e.clientX, e.clientY);
+      if (!p) return;
+      const dragged = plantRoot.children.find((c) => c.userData.plotId === id);
+      if (dragged) dragged.position.set(p.x, 0, p.z);
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      const id = draggingRef.current;
+      if (id == null) return;
+      draggingRef.current = null;
+      controls.enabled = true;
+
+      const p = intersectGround(e.clientX, e.clientY);
+      const slot = p ? positionToSlot(p.x, p.z) : null;
+      const dragged = plantRoot.children.find((c) => c.userData.plotId === id);
+      // 落回原格 / 落在地块外：本地复位；落到别的格子：交给父组件落库
+      if (slot == null || (dragged && dragged.userData.slot === slot)) {
+        void rebuildRef.current?.();
+        return;
+      }
+      const result = onMoveSlotRef.current?.(id, slot);
+      // 落库失败（格子被占、请求出错）时按服务端数据复位，别让植物停在错误的位置
+      if (result instanceof Promise) {
+        void result.then((ok) => {
+          if (ok === false) void rebuildRef.current?.();
+        });
+      }
+    };
+
+    /** 手势被打断（系统取消、来电等）：复位，不留悬空拖动状态 */
+    const onPointerCancel = () => {
+      if (draggingRef.current == null) return;
+      draggingRef.current = null;
+      controls.enabled = true;
+      void rebuildRef.current?.();
+    };
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointercancel", onPointerCancel);
 
     let raf = 0;
     let running = true;
@@ -309,7 +388,10 @@ export default function GardenScene3D({
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("visibilitychange", onVisibility);
-      renderer.domElement.removeEventListener("pointerdown", onClick);
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointercancel", onPointerCancel);
       controls.dispose();
       // 本组件创建的 GPU 资源：地面与网格的几何体/材质，加上植物克隆实例的材质
       ground.geometry.dispose();
@@ -375,9 +457,12 @@ export default function GardenScene3D({
       }
     };
 
+    // 拖动落点无效时由 pointerup 调用：按服务端数据把植物摆回原位
+    rebuildRef.current = rebuild;
     void rebuild();
     return () => {
       cancelled = true;
+      rebuildRef.current = null;
       disposePlants(ctx.plantRoot);
     };
   }, [plots, selectedId]);
