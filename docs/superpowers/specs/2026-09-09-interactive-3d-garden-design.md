@@ -208,11 +208,13 @@ src/components/garden/GardenTab.tsx       花园 Tab 外壳（库存栏 + 场景
 
 ### API 草案
 
-| 方法 | 路径 | 作用 |
-|---|---|---|
-| GET | `/api/garden-plots?childId=` | 返回地块（含推进后的 stage）+ 库存 + 服务端 `now` |
-| POST | `/api/garden-plots` | 种植：`{ childId, slot, species }`，消耗种子 |
-| PATCH | `/api/garden-plots` | `{ id, action: "water" \| "rename" \| "move" \| "harvest" }` |
+权限点由 `scripts/gen-api-perms.mjs` 自动扫描生成，该脚本对**集合路由**只映射 `GET→list`、`POST→create`，对 **`[id]` 子路由**映射 `GET→detail`、`PUT→update`、`DELETE→delete`；集合路由上的 PATCH/PUT 不会生成权限点。因此操作类接口走 `[id]` 子路由。
+
+| 方法 | 路径 | 权限点 | 作用 |
+|---|---|---|---|
+| GET | `/api/garden-plots?childId=` | `api:garden-plots:list` | 返回地块（含推进后的 stage）+ 库存 + 服务端 `now` |
+| POST | `/api/garden-plots` | `api:garden-plots:create` | 种植：`{ childId, slot, species }`，消耗种子 |
+| PUT | `/api/garden-plots/[id]` | `api:garden-plots:update` | `{ action: "water" \| "rename" \| "move" \| "harvest" }` |
 
 ## 10. 分期
 
