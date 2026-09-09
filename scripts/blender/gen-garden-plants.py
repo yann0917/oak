@@ -613,19 +613,22 @@ def build_fruit(cfg, attach):
 
 
 # 梅树 / 桂花树的枝杈：叶、花、果都用 along()/foliage_on()/heads_on() 挂上去
+# 主干高度单独提出来，果实的 dz 要减掉它（着生高度 = 茎顶）
+_PLUM_H = 0.95
+_OSM_H = 0.95
 _PLUM_BRANCHES = [
-    limb(length=0.44, r=0.011, segs=8, elev=44.0, az=22.0, z=0.45, bend=0.055),
-    limb(length=0.38, r=0.010, segs=8, elev=54.0, az=112.0, z=0.55, bend=0.045),
-    limb(length=0.40, r=0.010, segs=8, elev=40.0, az=198.0, z=0.48, bend=0.055),
-    limb(length=0.34, r=0.009, segs=8, elev=60.0, az=292.0, z=0.60, bend=0.045),
-    limb(length=0.30, r=0.008, segs=7, elev=32.0, az=338.0, z=0.64, bend=0.045),
+    limb(length=0.48, r=0.011, segs=8, elev=44.0, az=22.0, z=0.55, bend=0.055),
+    limb(length=0.42, r=0.010, segs=8, elev=54.0, az=112.0, z=0.63, bend=0.045),
+    limb(length=0.44, r=0.010, segs=8, elev=40.0, az=198.0, z=0.57, bend=0.055),
+    limb(length=0.38, r=0.009, segs=8, elev=60.0, az=292.0, z=0.68, bend=0.045),
+    limb(length=0.34, r=0.008, segs=7, elev=32.0, az=338.0, z=0.72, bend=0.045),
 ]
 _OSM_BRANCHES = [
-    limb(length=0.40, r=0.008, segs=7, elev=42.0, az=18.0, z=0.36, bend=0.045),
-    limb(length=0.36, r=0.008, segs=7, elev=50.0, az=98.0, z=0.44, bend=0.045),
-    limb(length=0.38, r=0.008, segs=7, elev=38.0, az=188.0, z=0.38, bend=0.050),
-    limb(length=0.32, r=0.007, segs=7, elev=56.0, az=282.0, z=0.50, bend=0.040),
-    limb(length=0.28, r=0.007, segs=6, elev=30.0, az=342.0, z=0.56, bend=0.040),
+    limb(length=0.42, r=0.008, segs=7, elev=42.0, az=18.0, z=0.54, bend=0.045),
+    limb(length=0.38, r=0.008, segs=7, elev=50.0, az=98.0, z=0.62, bend=0.045),
+    limb(length=0.40, r=0.008, segs=7, elev=38.0, az=188.0, z=0.56, bend=0.050),
+    limb(length=0.34, r=0.007, segs=7, elev=56.0, az=282.0, z=0.68, bend=0.040),
+    limb(length=0.30, r=0.007, segs=6, elev=30.0, az=342.0, z=0.72, bend=0.040),
 ]
 
 
@@ -779,7 +782,7 @@ SPECIES = {
     # ------------------------------------------------ 梅树：小乔木 + 五瓣花团 + 梅子
     "plum": {
         # 木质主干 0.85m + 5 根外张的枝杈（先端下垂）
-        "stem": dict(h=0.85, r=0.016, segs=10, color=(0.38, 0.31, 0.25),
+        "stem": dict(h=_PLUM_H, r=0.016, segs=10, color=(0.38, 0.31, 0.25),
                      profile=[(0.0, 1.20), (0.22, 1.00), (0.50, 0.82),
                               (0.78, 0.62), (1.0, 0.44)],
                      rings=[0.0, 0.22, 0.50, 0.78, 1.0],
@@ -796,7 +799,7 @@ SPECIES = {
             droop=0.30, fold=0.28, twist=0.40, thick=0.007, nu=5, nv=4),
         # 花：14 团五瓣花（无花心，五片粉花瓣从一点张开 = 梅花），沿枝梢散布、
         # 朝上张开（elev 比枝干更立，正对 40° 俯角的游戏相机）
-        "flower": heads_on(_PLUM_BRANCHES, 0.85, [
+        "flower": heads_on(_PLUM_BRANCHES, _PLUM_H, [
             (0, 0.55, -22.0, 1.40), (0, 0.86, -14.0, 1.25),
             (1, 0.50, -20.0, 1.30), (1, 0.78, -12.0, 1.40), (1, 1.00, -24.0, 1.15),
             (2, 0.58, -22.0, 1.35), (2, 0.88, -16.0, 1.20),
@@ -811,19 +814,19 @@ SPECIES = {
         "fruit": dict(color=(0.60, 0.72, 0.36), berry_segs=8,
                       berries=[dict(x=along(_PLUM_BRANCHES[0], 0.80)[0],
                                     y=along(_PLUM_BRANCHES[0], 0.80)[1],
-                                    dz=along(_PLUM_BRANCHES[0], 0.80)[2] - 0.85, r=0.016),
+                                    dz=along(_PLUM_BRANCHES[0], 0.80)[2] - _PLUM_H, r=0.016),
                                dict(x=along(_PLUM_BRANCHES[1], 0.72)[0],
                                     y=along(_PLUM_BRANCHES[1], 0.72)[1],
-                                    dz=along(_PLUM_BRANCHES[1], 0.72)[2] - 0.85, r=0.015),
+                                    dz=along(_PLUM_BRANCHES[1], 0.72)[2] - _PLUM_H, r=0.015),
                                dict(x=along(_PLUM_BRANCHES[2], 0.75)[0],
                                     y=along(_PLUM_BRANCHES[2], 0.75)[1],
-                                    dz=along(_PLUM_BRANCHES[2], 0.75)[2] - 0.85, r=0.015),
+                                    dz=along(_PLUM_BRANCHES[2], 0.75)[2] - _PLUM_H, r=0.015),
                                dict(x=along(_PLUM_BRANCHES[3], 0.70)[0],
                                     y=along(_PLUM_BRANCHES[3], 0.70)[1],
-                                    dz=along(_PLUM_BRANCHES[3], 0.70)[2] - 0.85, r=0.014),
+                                    dz=along(_PLUM_BRANCHES[3], 0.70)[2] - _PLUM_H, r=0.014),
                                dict(x=along(_PLUM_BRANCHES[4], 0.75)[0],
                                     y=along(_PLUM_BRANCHES[4], 0.75)[1],
-                                    dz=along(_PLUM_BRANCHES[4], 0.75)[2] - 0.85, r=0.014)]),
+                                    dz=along(_PLUM_BRANCHES[4], 0.75)[2] - _PLUM_H, r=0.014)]),
     },
 
     # ------------------------------------------------ 绣球：球形花序（许多小花）+ 宽大叶
@@ -871,7 +874,7 @@ SPECIES = {
 
     # ------------------------------------------------ 桂花树：小乔木 + 密生小叶 + 碎黄簇
     "osmanthus": {
-        "stem": dict(h=0.72, r=0.015, segs=10, color=(0.40, 0.33, 0.26),
+        "stem": dict(h=_OSM_H, r=0.015, segs=10, color=(0.40, 0.33, 0.26),
                      profile=[(0.0, 1.20), (0.25, 1.00), (0.55, 0.80), (1.0, 0.50)],
                      rings=[0.0, 0.25, 0.55, 1.0],
                      branches=_OSM_BRANCHES),
@@ -889,7 +892,7 @@ SPECIES = {
             petiole=0.022, petiole_r=0.0032, petiole_segs=5,
             droop=0.24, fold=0.26, twist=0.35, thick=0.006, nu=4, nv=4),
         # 花：9 簇细碎黄花（小米粒圆顶 + 4 片小瓣），长在枝梢的叶腋处
-        "flower": heads_on(_OSM_BRANCHES, 0.72, [
+        "flower": heads_on(_OSM_BRANCHES, _OSM_H, [
             (0, 0.88, 4.0, 1.15), (1, 0.90, -4.0, 1.05),
             (2, 0.86, 6.0, 1.10), (3, 0.92, -2.0, 1.00),
             (4, 0.88, 4.0, 0.95), (0, 0.60, 14.0, 0.90),
@@ -905,19 +908,19 @@ SPECIES = {
         "fruit": dict(color=(0.30, 0.22, 0.34), berry_segs=7,
                       berries=[dict(x=along(_OSM_BRANCHES[0], 0.80)[0],
                                     y=along(_OSM_BRANCHES[0], 0.80)[1],
-                                    dz=along(_OSM_BRANCHES[0], 0.80)[2] - 0.72, r=0.011),
+                                    dz=along(_OSM_BRANCHES[0], 0.80)[2] - _OSM_H, r=0.011),
                                dict(x=along(_OSM_BRANCHES[1], 0.82)[0],
                                     y=along(_OSM_BRANCHES[1], 0.82)[1],
-                                    dz=along(_OSM_BRANCHES[1], 0.82)[2] - 0.72, r=0.010),
+                                    dz=along(_OSM_BRANCHES[1], 0.82)[2] - _OSM_H, r=0.010),
                                dict(x=along(_OSM_BRANCHES[2], 0.78)[0],
                                     y=along(_OSM_BRANCHES[2], 0.78)[1],
-                                    dz=along(_OSM_BRANCHES[2], 0.78)[2] - 0.72, r=0.010),
+                                    dz=along(_OSM_BRANCHES[2], 0.78)[2] - _OSM_H, r=0.010),
                                dict(x=along(_OSM_BRANCHES[3], 0.85)[0],
                                     y=along(_OSM_BRANCHES[3], 0.85)[1],
-                                    dz=along(_OSM_BRANCHES[3], 0.85)[2] - 0.72, r=0.009),
+                                    dz=along(_OSM_BRANCHES[3], 0.85)[2] - _OSM_H, r=0.009),
                                dict(x=along(_OSM_BRANCHES[4], 0.80)[0],
                                     y=along(_OSM_BRANCHES[4], 0.80)[1],
-                                    dz=along(_OSM_BRANCHES[4], 0.80)[2] - 0.72, r=0.009)]),
+                                    dz=along(_OSM_BRANCHES[4], 0.80)[2] - _OSM_H, r=0.009)]),
     },
 
     # ------------------------------------------------ 雏菊：低矮 + 白色细花瓣 + 黄花心
