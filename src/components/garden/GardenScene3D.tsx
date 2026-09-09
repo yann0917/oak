@@ -200,6 +200,10 @@ export default function GardenScene3D({
     onSelectRef.current = onSelect;
     arrangingRef.current = arranging;
     onMoveSlotRef.current = onMoveSlot;
+    // 整理模式全程锁住相机：孩子的整理手势大多落在空地上（0 阶段幼苗只有几个像素），
+    // 只在按住植物时才禁用的话，拖空地面仍会带着相机转
+    const controls = sceneRef.current?.controls;
+    if (controls) controls.enabled = !arranging;
   }, [onSelect, arranging, onMoveSlot]);
 
   useEffect(() => {
@@ -230,6 +234,9 @@ export default function GardenScene3D({
     controls.maxDistance = 22;
     controls.enablePan = false;
     controls.enableDamping = true;
+    // 挂载时就处于整理模式的话（父组件默认打开）初始即锁住相机；
+    // 之后的开关切换由 arranging 同步 effect 负责
+    controls.enabled = !arrangingRef.current;
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x9ec9a0, 1.15));
     const sun = new THREE.DirectionalLight(0xfff3d0, 1.1);
@@ -316,7 +323,8 @@ export default function GardenScene3D({
       const id = draggingRef.current;
       if (id == null) return;
       draggingRef.current = null;
-      controls.enabled = true;
+      // 只在非整理模式恢复相机；整理模式还开着就继续锁住
+      controls.enabled = !arrangingRef.current;
 
       const p = intersectGround(e.clientX, e.clientY);
       const slot = p ? positionToSlot(p.x, p.z) : null;
@@ -339,7 +347,7 @@ export default function GardenScene3D({
     const onPointerCancel = () => {
       if (draggingRef.current == null) return;
       draggingRef.current = null;
-      controls.enabled = true;
+      controls.enabled = !arrangingRef.current;
       void rebuildRef.current?.();
     };
 
