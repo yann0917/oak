@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Card, Tag, Title, Tabs } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { MemberFilter, useMemberSelect } from "@/components/MemberFilter";
@@ -15,6 +16,9 @@ import {
 import { GAME_MAP } from "@/lib/games/registry";
 import { formatDuration } from "@/lib/garden/types";
 import GamesMenu from "@/components/games/GamesMenu";
+
+// 临时挂载点（Task 10 验证用）：Task 14 会换成读取真实花园数据
+const GardenScene3D = dynamic(() => import("@/components/garden/GardenScene3D"), { ssr: false });
 
 // 动态颜色一律走 Chip（color 为 any）；静态颜色才用 Tag 字面量
 const DIFF_COLOR: Record<string, string> = {
@@ -47,7 +51,8 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
   const [records, setRecords] = useState<GardenRecord[]>([]);
   const [settings, setSettings] = useState<GardenSetting[]>([]);
   const [stage, setStage] = useState("全部");
-  const [tab, setTab] = useState(initialTab === "records" ? "records" : "cards");
+  // 临时：默认落在「我的花园」Tab（原默认 cards 已被临时替换，Task 14 一并恢复）
+  const [tab, setTab] = useState(initialTab === "records" ? "records" : "garden");
 
   useEffect(() => {
     if (memberId == null) return;
@@ -108,7 +113,16 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         activeKey={tab}
         onChange={(key) => setTab(key)}
         items={[
-          { key: "cards", label: "学习卡片", children: renderCardsTab() },
+          // 临时：第一个 Tab 换成 3D 场景（Task 10 验证用，Task 14 替换为真实数据）
+          {
+            key: "garden",
+            label: "我的花园",
+            children: (
+              <div className="relative h-[60vh] rounded-3xl overflow-hidden border-2" style={{ borderColor: "#e8dcc8" }}>
+                <GardenScene3D plots={[]} />
+              </div>
+            ),
+          },
           { key: "games", label: "益智游戏", children: <GamesMenu /> },
           { key: "records", label: "学习记录", children: renderRecordsTab() },
         ]}
