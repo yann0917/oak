@@ -16,6 +16,12 @@
       flower / fruit  原点在着生高度（与茎顶相接处，= stem.h）—— 缩放时留在茎顶，
                       花苞期把 flower 缩到 0.45 也不会掉进叶丛。
   - 预算：单构件 ≤ MAX_TRIS_PER_PART，单物种 ≤ MAX_TRIS_PER_SPECIES，超了直接抛错。
+  - 花头参数契约：core/core_h/core_verts/core_color 是深色小圆顶花心；花瓣用
+    rings=[dict(count, length, phase, tilt, wid, base, thick)] 表达（窄基宽尖的锥形
+    叶片，wid=外端最宽、base=基部宽），外层参数 petal_wid/petal_base/petal_thick/
+    tilt/jitter 是各圈的默认值；缺 rings 时退化成单圈 petals×petal。base_r 是花瓣
+    基部的半径（旧键 base 兼容）。叶片用 count/size/z/tilt/flat/thin/inset 定位
+    （旧参数 radius 仍兼容）。
 """
 import bpy
 import json
@@ -73,9 +79,14 @@ def take(name, material):
     return o
 
 
-def add_cylinder(name, r, h, color, verts=8, z=0.0):
-    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=r, depth=h,
-                                        location=(0, 0, z + h / 2))
+def add_cylinder(name, r, h, color, verts=8, z=0.0, r_top=None):
+    """圆柱；给了 r_top 且与 r 不同时退化成上细下粗的圆台（茎用它变细）。"""
+    if r_top is None or abs(r_top - r) < 1e-6:
+        bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=r, depth=h,
+                                            location=(0, 0, z + h / 2))
+    else:
+        bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=r, radius2=r_top,
+                                        depth=h, location=(0, 0, z + h / 2))
     return take(name, mat(name + "_m", color))
 
 
@@ -87,19 +98,58 @@ def add_sphere(name, r, color, loc=(0, 0, 0), scale=(1, 1, 1), rot=(0, 0, 0), se
     return o
 
 
-def add_petal(name, length, width, tip_width, thick, color):
-    """花瓣：沿 +x 伸出的扁盒（外端收窄），长/宽/厚为实际尺寸，12 三角面。
+def wobble(i, salt, amount):
+    """确定性伪随机 ∈ [-amount, amount]：两次导出可复现，不需要 random 模块。"""
+    v = math.sin((i + 1) * 12.9898 + salt) * 43758.5453
+    return ((v - math.floor(v)) * 2.0 - 1.0) * amount
 
-    有厚度、可绕 y 抬起、可绕 z 绕花心排布——不是零厚度的平面片。
+
+def add_petal(name, length, wid, base, thick, color, tip_thin=0.45):
+    """花瓣：基部窄、向外渐宽到尖端的锥形叶片（梯形轮廓），12 三角面。
+
+    不是等宽直板：base = 基部宽、wid = 外端最宽、length : wid ≈ 3 : 1；厚度从
+    基部的 thick 收薄到尖端的 tip_thin×thick，所以侧视有厚度、俯视是花瓣不是方棒。
+    几何从 x=0（基部）伸到 x=length（尖端），原点在基部——由 build_flower 摆到
+    (base_r, base_z) 并按倾角/方位角旋转。
     """
-    hl, hw, tw, ht = length / 2.0, width / 2.0, tip_width / 2.0, thick / 2.0
+    hb, hw = base / 2.0, wid / 2.0
+    ht, tt = thick / 2.0, thick * tip_thin / 2.0
     verts = [
-        (-hl, -hw, -ht), (-hl, hw, -ht), (hl, tw, -ht), (hl, -tw, -ht),
-        (-hl, -hw, ht), (-hl, hw, ht), (hl, tw, ht), (hl, -tw, ht),
+        (0.0, -hb, -ht), (0.0, hb, -ht), (length, hw, -tt), (length, -hw, -tt),
+        (0.0, -hb, ht), (0.0, hb, ht), (length, hw, tt), (length, -hw, tt),
     ]
     faces = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
     me = bpy.data.meshes.new(name)
     me.from_pydata(verts, [], faces)
+    me.update()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    bpy.context.view_layer.objects.active = o
+    return take(name, mat(name + "_m", color))
+
+
+def add_dome(name, r, h, color, verts=10, z=0.0):
+    """花心：小圆盘 + 微微隆起的顶——不是高球、也不是薄片，4N 三角面。
+
+    底圈（半径 r，z=0）→ 顶圈（0.55r，0.75h）→ 顶心（0，h），底面封平。
+    z 是花心底面所在的绝对高度（通常 = 着生高度 attach）。
+    """
+    n = max(3, int(verts))
+    bot, top = [], []
+    for i in range(n):
+        a = 2 * math.pi * i / n
+        bot.append((math.cos(a) * r, math.sin(a) * r, z))
+        top.append((math.cos(a) * r * 0.55, math.sin(a) * r * 0.55, z + h * 0.75))
+    allv = bot + top + [(0.0, 0.0, z + h), (0.0, 0.0, z)]
+    apex, center = 2 * n, 2 * n + 1
+    faces = []
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, j, n + j, n + i))   # 侧壁
+        faces.append((n + i, n + j, apex))   # 顶面扇
+        faces.append((j, i, center))         # 底面扇
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(allv, [], faces)
     me.update()
     o = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(o)
@@ -137,20 +187,32 @@ def set_origin(obj, z):
 
 
 def build_stem(cfg):
-    return [add_cylinder("stem", cfg["r"], cfg["h"], cfg["color"], verts=cfg.get("verts", 8))]
+    return [add_cylinder("stem", cfg["r"], cfg["h"], cfg["color"],
+                         verts=cfg.get("verts", 8), r_top=cfg.get("r_top"))]
 
 
 def build_foliage(cfg):
+    """叶片：默认把叶柄端贴在茎上，沿叶片方向外移半个叶长，再按 tilt 上抬。
+
+    给了 radius（旧参数）时退回「中心距茎轴 radius、不因 tilt 补偿高度」的行为，
+    Task 5 的老参数表仍能跑。
+    """
     segs, rings = cfg.get("segs", 8), cfg.get("rings", 4)
+    size = cfg["size"]
+    tilt = math.radians(cfg.get("tilt", 0.0))
+    inset = cfg.get("inset", 0.02)
     objs = []
     for i in range(cfg["count"]):
         a = i * (2 * math.pi / cfg["count"]) + cfg.get("phase", 0.0)
-        r = cfg["radius"]
+        if cfg.get("radius") is not None:
+            r, z = cfg["radius"], cfg["z"]
+        else:
+            r = inset + size * math.cos(tilt)
+            z = cfg["z"] + size * math.sin(tilt)
         objs.append(add_sphere(
-            "foliage_%d" % i, cfg["size"], cfg["color"],
-            loc=(math.cos(a) * r, math.sin(a) * r, cfg["z"]),
+            "foliage_%d" % i, size, cfg["color"], loc=(math.cos(a) * r, math.sin(a) * r, z),
             scale=(1.0, cfg.get("flat", 0.45), cfg.get("thin", 0.3)),
-            rot=(0, 0, a), segs=segs, rings=rings,
+            rot=(0.0, -tilt, a), segs=segs, rings=rings,
         ))
     top = cfg.get("top")
     if top:
@@ -164,34 +226,40 @@ def build_foliage(cfg):
 
 
 def build_flower(cfg, attach=0.0):
-    """花头：深色扁圆花心 + 一圈或多圈有厚度、向上倾斜的花瓣。
+    """花头：小圆顶深色花心 + 两圈错开的锥形花瓣。
 
     几何直接建在着生高度 attach 之上（花心底面贴着茎顶），原点由 build_species
     用 set_origin 抬到 attach——缩放时花头留在茎顶而不是掉进叶丛。
-    花瓣圈写在 rings 里，每圈 dict(count=个数, length=花瓣长, phase=错开比例)。
+    花瓣圈写在 rings 里，每圈 dict(count=个数, length=花瓣长, phase=错开比例,
+    tilt=该圈上抬角, wid/base/thick=该圈花瓣尺寸)；每片花瓣的倾角/长度/方位都带
+    确定性抖动（jitter），避免机械感。缺 rings 时退化成单圈 petals×petal。
     """
-    core_h = cfg.get("core_h", 0.035)
-    objs = [add_cylinder("flower_core", cfg["core"], core_h, cfg["core_color"],
-                         verts=cfg.get("verts", 12), z=attach)]
-    tilt = math.radians(cfg.get("tilt", 20.0))
-    base_r = cfg.get("base", cfg["core"] * 0.92)
-    base_z = attach + core_h * 0.55
+    core_r = cfg["core"]
+    core_h = cfg.get("core_h", 0.026)
+    core_verts = cfg.get("core_verts", cfg.get("verts", 10))
+    objs = [add_dome("flower_core", core_r, core_h, cfg["core_color"],
+                     verts=core_verts, z=attach)]
+    base_r = cfg.get("base_r", cfg.get("base", core_r * 0.74))  # 花瓣基部半径（伸进花心边缘）
+    base_z = attach + core_h * 0.45
+    jitter = cfg.get("jitter", 0.4)
     rings = cfg.get("rings") or [dict(count=cfg["petals"], length=cfg["petal"])]
     for ri, ring in enumerate(rings):
         n, length = ring["count"], ring["length"]
-        wid = ring.get("wid", cfg.get("petal_wid", length * 0.38))
-        tip = ring.get("tip", cfg.get("petal_tip", wid * 0.7))
-        thick = ring.get("thick", cfg.get("petal_thick", length * 0.12))
+        tilt = math.radians(ring.get("tilt", cfg.get("tilt", 20.0)))
+        wid = ring.get("wid", cfg.get("petal_wid", length * 0.32))
+        base = ring.get("base", cfg.get("petal_base", wid * 0.36))
+        thick = ring.get("thick", cfg.get("petal_thick", 0.010))
         for i in range(n):
             a = (i + ring.get("phase", 0.0)) * (2 * math.pi / n)
-            c, s = math.cos(a), math.sin(a)
-            o = add_petal("flower_petal_%d_%d" % (ri, i), length, wid, tip, thick,
+            li = length * (1.0 + wobble(i, 1.7 + ri, 0.07 * jitter))
+            ti = tilt + math.radians(wobble(i, 5.3 + ri, 4.5 * jitter))
+            ai = a + math.radians(wobble(i, 9.1 + ri, 2.0 * jitter))
+            c, s = math.cos(ai), math.sin(ai)
+            o = add_petal("flower_petal_%d_%d" % (ri, i), li, wid, base, thick,
                           cfg["petal_color"])
-            # 内端落在 (base_r, base_z)；Ry(-tilt) 把 +x 端抬起，再绕 z 排到 a 方向
-            o.location = ((base_r + length / 2.0 * math.cos(tilt)) * c,
-                          (base_r + length / 2.0 * math.cos(tilt)) * s,
-                          base_z + length / 2.0 * math.sin(tilt))
-            o.rotation_euler = (0.0, -tilt, a)
+            # 基部落在 (base_r, base_z)，Ry(-tilt) 把 +x 端抬起，再绕 z 排到 ai 方向
+            o.location = (base_r * c, base_r * s, base_z)
+            o.rotation_euler = (0.0, -ti, ai)
             objs.append(o)
     return objs
 
@@ -206,14 +274,20 @@ def build_fruit(cfg, attach=0.0):
 
 SPECIES = {
     "sunflower": {
-        "stem": dict(r=0.035, h=0.95, color=(0.36, 0.55, 0.30)),
-        "foliage": dict(count=3, radius=0.10, size=0.16, z=0.42, color=(0.53, 0.76, 0.44),
-                        top=dict(size=0.13, z=0.62, scale=(1.0, 0.55, 0.22))),
-        "flower": dict(core=0.06, core_h=0.032, core_color=(0.24, 0.15, 0.08),
-                       petal_color=(0.97, 0.81, 0.40),
-                       petal_wid=0.028, petal_tip=0.020, petal_thick=0.011, tilt=15.0,
-                       rings=[dict(count=12, length=0.125),
-                              dict(count=8, length=0.088, phase=0.5)]),
+        # 茎细一档（0.033 → 0.023 的圆台，均值 ≈ 0.028），不再读作一根柱子
+        "stem": dict(r=0.033, r_top=0.023, h=0.95, color=(0.36, 0.55, 0.30)),
+        # 两片大叶、对面着生、上抬 25°、位置压低（0.30），把上半段留给花头
+        "foliage": dict(count=2, size=0.165, z=0.30, tilt=25.0, flat=0.45, thin=0.13,
+                        inset=0.02, phase=0.6, color=(0.53, 0.76, 0.44)),
+        # 花心 r=0.07 / 拱高 0.026 的深棕小圆顶；外圈 13 片长 0.118、上抬 20°，
+        # 内圈 8 片更短更立（28°）错开半格、瓣尖伸进外圈缝隙——花瓣窄基宽尖带抖动
+        "flower": dict(core=0.07, core_h=0.026, core_verts=10,
+                       core_color=(0.24, 0.17, 0.11), petal_color=(0.97, 0.76, 0.24),
+                       petal_wid=0.042, petal_base=0.014, petal_thick=0.011,
+                       tilt=20.0, jitter=0.4,
+                       rings=[dict(count=13, length=0.118),
+                              dict(count=8, length=0.092, phase=0.5, tilt=28.0,
+                                   wid=0.036, base=0.012, thick=0.009)]),
         "fruit": dict(r=0.075, z=0.03, color=(0.45, 0.32, 0.20)),
     },
 }
