@@ -9,7 +9,7 @@ import {
   TONE_QUADS,
 } from "@/data/garden/pinyin";
 import { LETTERS } from "@/data/garden/letters";
-import { POEMS, POET_POOL } from "@/data/garden/poems";
+import { POEMS, POET_POOL, poemCouplets } from "@/data/garden/poems";
 import { COLORS } from "@/data/garden/colors";
 import { WORDS } from "@/data/garden/words";
 import {
@@ -68,8 +68,15 @@ function makeChoiceQuestion(
   };
 }
 
-// ---------- 数学默认参数 ----------
+/** 拆一联为上/下句：以最后一个逗号分界，句内标点（如「鹅，鹅，鹅」）不会拆错 */
+export function splitCouplet(couplet: string): [string, string] {
+  const body = couplet.replace(/[。！？]$/, "");
+  const i = body.lastIndexOf("，");
+  if (i < 0) return [body, ""];
+  return [body.slice(0, i), body.slice(i + 1)];
+}
 
+// ---------- 数学默认参数 ----------
 export const DEFAULT_MATH_CONFIG: Record<Tier, MathTierConfig> = {
   1: { ops: ["add", "sub"], max: 10 },
   2: { ops: ["add", "sub"], max: 20 },
@@ -406,13 +413,14 @@ export function buildQuestions(opts: BuildOptions): Question[] {
     }
 
     case "poems": {
-      const allLower = POEMS.flatMap((p) => p.couplets.map((c) => c.split("，")[1]?.replace("。", "") ?? ""));
-      const allUpper = POEMS.flatMap((p) => p.couplets.map((c) => c.split("，")[0] ?? ""));
+      const couplets = POEMS.flatMap((p) => poemCouplets(p));
+      const allLower = couplets.map((c) => splitCouplet(c)[1]);
+      const allUpper = couplets.map((c) => splitCouplet(c)[0]);
       if (tier === 1 || tier === 3) {
         // 补全名句（简单：给上句选下句；困难：给下句选上句）
         const pool: PoolItem<{ poem: (typeof POEMS)[number]; couplet: string; idx: number }>[] =
           POEMS.flatMap((poem) =>
-            poem.couplets.map((couplet, idx) => ({
+            poemCouplets(poem).map((couplet, idx) => ({
               itemKey: `poem:${poem.title}#${idx}`,
               item: { poem, couplet, idx },
             }))
@@ -421,7 +429,7 @@ export function buildQuestions(opts: BuildOptions): Question[] {
         const forward = tier === 1;
         return shuffle(
           items.map((item) => {
-            const [upper, lower] = item.couplet.split("，").map((s) => s.replace("。", ""));
+            const [upper, lower] = splitCouplet(item.couplet);
             const displayText = forward ? `${upper}，` : `${lower}。`;
             const correct = forward ? `${lower}。` : `${upper}，`;
             const distractPool = forward ? allLower : allUpper;
@@ -452,7 +460,7 @@ export function buildQuestions(opts: BuildOptions): Question[] {
               itemKey: `poem:author:${item.title}`,
               label: `《${item.title}》作者`,
               prompt: `《${item.title}》的作者是谁？`,
-              display: { kind: "text", value: `《${item.title}》`, sub: item.couplets[0] },
+              display: { kind: "text", value: `《${item.title}》`, sub: poemCouplets(item)[0] },
               answer: item.author,
             },
             [item.author, ...sample(others, 3)]

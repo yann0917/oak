@@ -20,6 +20,7 @@ import { toast } from "@/lib/toast";
 import { Chip } from "@/components/CrudSection";
 import OwlTeacher, { type OwlAction } from "@/components/garden/OwlTeacher";
 import SceneBackground from "@/components/garden/SceneBackground";
+import GardenLearn from "@/components/garden/GardenLearn";
 import {
   EXCITED_TONE,
   SORRY_TONE,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/garden/speech";
 import type { TtsVoice } from "@/lib/tts/voices";
 import { ACTIVITY_MAP, ACTIVITY_PALETTE } from "@/lib/garden/registry";
+import { LEARN_SPEC } from "@/lib/garden/learn";
 import { BUILTIN_CHARACTERS } from "@/data/garden/characters";
 import { PINYIN_READ } from "@/data/garden/pinyin";
 import { COLORS } from "@/data/garden/colors";
@@ -183,6 +185,8 @@ export default function GardenActivity({ type }: { type: string }) {
   const { children: kids, member, memberId, setMemberId } = useMemberSelect();
 
   const [loading, setLoading] = useState(true);
+  // 三阶段：① 学一学（认一认/读一读/认数字）② 听一听 ③ 练一练（原有出题流程）
+  const [stage, setStage] = useState<"wall" | "listen" | "practice">("wall");
   const [phase, setPhase] = useState<"intro" | "playing" | "done">("intro");
   const [difficulty, setDifficulty] = useState<Difficulty>("简单");
   const [roundSize, setRoundSize] = useState(10);
@@ -561,7 +565,7 @@ export default function GardenActivity({ type }: { type: string }) {
           >
             {voiceMuted ? "🔇" : "🔊"}
           </div>
-          {phase === "intro" && (
+          {(stage !== "practice" || phase === "intro") && (
             <div className="w-40 shrink-0">
               <MemberFilter value={memberId} onChange={setMemberId} allowAll={false} />
             </div>
@@ -609,11 +613,55 @@ export default function GardenActivity({ type }: { type: string }) {
           </div>
         </div>
 
+        {/* 三阶段切换：学一学（命名）→ 听一听（辨认）→ 练一练（回忆）。练习进行中隐藏，避免误触中断 */}
+        {!(stage === "practice" && phase === "playing") && (
+          <div className="flex justify-center px-4 pt-3 shrink-0">
+            <div
+              className="flex gap-1 rounded-full bg-white/90 border-2 p-1.5"
+              style={{ borderColor: "#e8dcc8" }}
+            >
+              {(
+                [
+                  { key: "wall", label: `① ${LEARN_SPEC[type as ActivityKey]?.wall ?? "学一学"}` },
+                  { key: "listen", label: "② 听一听" },
+                  { key: "practice", label: "③ 练一练" },
+                ] as const
+              ).map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => setStage(s.key)}
+                  aria-pressed={stage === s.key}
+                  className="px-3.5 sm:px-5 h-9 rounded-full text-sm font-bold cursor-pointer select-none"
+                  style={
+                    stage === s.key
+                      ? { background: "#8ac68a", color: "#fff", boxShadow: "0 3px 0 #4c9c54" }
+                      : { color: "var(--animal-text-color-secondary)" }
+                  }
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 主体 */}
         <div className="flex-1 flex items-center justify-center p-4 pb-12">
-          {phase === "intro" && renderIntro()}
-          {phase === "playing" && question && renderPlaying()}
-          {phase === "done" && renderDone()}
+          {stage !== "practice" && (
+            <GardenLearn
+              activity={type as ActivityKey}
+              difficulty={difficulty}
+              onDifficultyChange={setDifficulty}
+              customCharacters={customChars}
+              mode={stage}
+              onModeChange={setStage}
+              onPractice={() => setStage("practice")}
+            />
+          )}
+          {stage === "practice" && phase === "intro" && renderIntro()}
+          {stage === "practice" && phase === "playing" && question && renderPlaying()}
+          {stage === "practice" && phase === "done" && renderDone()}
         </div>
       </div>
 
