@@ -25,6 +25,8 @@ export interface GardenScene3DProps {
   onSelect?: (id: number | null) => void;
   /** 拖动落位回调；返回 Promise 时，resolve 为 false 表示落库失败，场景会复位 */
   onMoveSlot?: (id: number, slot: number) => void | Promise<unknown>;
+  /** 场景初始化失败（WebGL 上下文创建不出来等）：父组件据此切到降级列表 */
+  onError?: () => void;
 }
 
 const SKY = 0xcdebf6;
@@ -175,6 +177,7 @@ export default function GardenScene3D({
   arranging = false,
   onSelect,
   onMoveSlot,
+  onError,
 }: GardenScene3DProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   // 场景对象保存在 ref 里，供后续任务复用
@@ -192,6 +195,7 @@ export default function GardenScene3D({
   // 整理模式开关与落位回调同理存 ref，避免场景初始化 effect 依赖它们反复重建
   const arrangingRef = useRef(arranging);
   const onMoveSlotRef = useRef(onMoveSlot);
+  const onErrorRef = useRef(onError);
   /** 正在拖动的地块 id；null 表示没有拖动 */
   const draggingRef = useRef<number | null>(null);
   /** plots effect 里的重建函数：拖动落点无效时用它把植物复位 */
@@ -200,17 +204,27 @@ export default function GardenScene3D({
     onSelectRef.current = onSelect;
     arrangingRef.current = arranging;
     onMoveSlotRef.current = onMoveSlot;
+    onErrorRef.current = onError;
     // 整理模式全程锁住相机：孩子的整理手势大多落在空地上（0 阶段幼苗只有几个像素），
     // 只在按住植物时才禁用的话，拖空地面仍会带着相机转
     const controls = sceneRef.current?.controls;
     if (controls) controls.enabled = !arranging;
-  }, [onSelect, arranging, onMoveSlot]);
+  }, [onSelect, arranging, onMoveSlot, onError]);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // 探测通过也可能创建不出上下文（显卡驱动/上下文数量上限）：失败时报告父组件切降级列表，
+    // 不让整个 Tab 崩掉
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (err) {
+      console.warn("[garden] WebGL 初始化失败，改用降级列表", err);
+      onErrorRef.current?.();
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(host.clientWidth, host.clientHeight);
     host.appendChild(renderer.domElement);

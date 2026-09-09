@@ -40,7 +40,7 @@ interface PlotsResponse {
     waterCount: number;
     stageStartedAt: string;
     plantedAt: string;
-    /** 到下一阶段还差多久（毫秒）；降级列表用它显示"还要 X 小时" */
+    /** 到下一阶段还差多久（毫秒）。显示"还要 X 小时"不要用它，见 ripeMsOf */
     remainingMs: number;
   })[];
   items: ItemRow[];
@@ -87,17 +87,19 @@ export default function GardenTab({ childId }: { childId: number }) {
 
   // 到成熟（可收获）还差多久：跨阶段累计，浇水只会让它变小。
   // 不能用服务端的 remainingMs——那是到下一阶段的时间，浇水推进阶段后反而会变大。
-  const ripeMs =
-    selected && data
+  // 信息卡与降级列表共用它，保证两处显示同一个数字。
+  const ripeMsOf = (p: PlotView & { waterCount: number; stageStartedAt: string }) =>
+    data
       ? remainingToRipe(
           {
-            stage: selected.stage as Stage,
-            stageStartedAt: Date.parse(selected.stageStartedAt),
-            waterCount: selected.waterCount,
+            stage: p.stage as Stage,
+            stageStartedAt: Date.parse(p.stageStartedAt),
+            waterCount: p.waterCount,
           },
           data.now
         )
       : 0;
+  const ripeMs = selected ? ripeMsOf(selected) : 0;
 
   // 选中植物时朗读它的信息（孩子不识字，靠 TTS 听懂）
   useEffect(() => {
@@ -160,6 +162,7 @@ export default function GardenTab({ childId }: { childId: number }) {
           arranging={arranging}
           onSelect={setSelectedId}
           onMoveSlot={(id, slot) => act({ action: "move", slot }, id)}
+          onError={() => setCanRender3D(false)}
         />
       ) : (
         <div className="absolute inset-0 overflow-y-auto px-4 pb-4 pt-14 grid gap-2 content-start">
@@ -172,7 +175,7 @@ export default function GardenTab({ childId }: { childId: number }) {
                 <span className="text-2xl">{speciesMeta(p.species).emoji}</span>
                 <span className="font-bold">{p.nickname || speciesMeta(p.species).name}</span>
                 <Tag size="small" variant="soft">
-                  {p.stage >= 4 ? "可收获" : `${Math.ceil(p.remainingMs / 3600000)} 小时`}
+                  {p.stage >= 4 ? "可收获" : `${Math.ceil(ripeMsOf(p) / 3600000)} 小时`}
                 </Tag>
               </div>
             </Card>
@@ -200,9 +203,12 @@ export default function GardenTab({ childId }: { childId: number }) {
         <Button onClick={plant} disabled={busy}>
           种下一颗
         </Button>
-        <Button onClick={() => setArranging((v) => !v)} disabled={busy}>
-          {arranging ? "完成整理" : "整理花园"}
-        </Button>
+        {/* 整理花园是 3D 场景的拖动入口，降级列表里没有可拖的东西，直接隐藏 */}
+        {canRender3D && (
+          <Button onClick={() => setArranging((v) => !v)} disabled={busy}>
+            {arranging ? "完成整理" : "整理花园"}
+          </Button>
+        )}
         {selected && (
           <>
             <Button

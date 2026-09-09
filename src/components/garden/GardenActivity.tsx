@@ -233,6 +233,8 @@ export default function GardenActivity({ type }: { type: string }) {
 
   const startedAtRef = useRef(0);
   const savedRef = useRef(false);
+  // 本轮成绩的保存结果：只有确认入账才在结果页显示奖励（失败/未选成员时显示中性文案）
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "failed">("idle");
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -298,6 +300,7 @@ export default function GardenActivity({ type }: { type: string }) {
   useEffect(() => {
     if (phase !== "done" || memberId == null || savedRef.current) return;
     savedRef.current = true;
+    setSaveState("idle");
     api("/api/garden-records", {
       method: "POST",
       body: JSON.stringify({
@@ -307,7 +310,9 @@ export default function GardenActivity({ type }: { type: string }) {
         durationSec,
         results,
       }),
-    }).catch(() => {});
+    })
+      .then(() => setSaveState("saved"))
+      .catch(() => setSaveState("failed"));
   }, [phase, memberId, type, difficulty, durationSec, results]);
 
   // 结果页：按正确率给吉祥物反应（高分激情夸奖，低分惋惜安慰）
@@ -369,6 +374,7 @@ export default function GardenActivity({ type }: { type: string }) {
       return;
     }
     savedRef.current = false;
+    setSaveState("idle");
     startedAtRef.current = Date.now();
     setQuestions(qs);
     setCurrent(0);
@@ -1120,9 +1126,12 @@ export default function GardenActivity({ type }: { type: string }) {
                 返回园地
               </Button>
             </div>
-            {/* 本轮成绩已入账（/api/garden-records 发放 1 颗种子 + 2 滴水滴） */}
+            {/* 本轮成绩入账后才提示奖励（/api/garden-records 发放 1 颗种子 + 2 滴水滴）；
+                保存失败或未选成员时不承诺奖励，只保留去花园的引导 */}
             <p className="text-sm mt-2" style={{ color: "var(--animal-text-color-secondary)" }}>
-              🌱 获得一颗{speciesMeta(speciesForActivity(type)).name}种子 + 2 滴水滴，去「我的花园」种下吧
+              {saveState === "saved"
+                ? `🌱 获得一颗${speciesMeta(speciesForActivity(type)).name}种子 + 2 滴水滴，去「我的花园」种下吧`
+                : "去「我的花园」看看今天的花吧"}
             </p>
           </div>
         </div>
