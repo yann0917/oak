@@ -345,33 +345,6 @@ CREATE TABLE IF NOT EXISTS garden_idiom_stories (
   updated_at TEXT NOT NULL
 );
 
--- 可交互 3D 小花园：格子状态（收获即删除本行）
-CREATE TABLE IF NOT EXISTS garden_plots (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL DEFAULT 1,
-  child_id INTEGER NOT NULL,
-  slot INTEGER NOT NULL,
-  species TEXT NOT NULL,
-  stage INTEGER NOT NULL DEFAULT 0,
-  planted_at TEXT NOT NULL,
-  stage_started_at TEXT NOT NULL,
-  water_count INTEGER NOT NULL DEFAULT 0,
-  nickname TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
--- 可交互 3D 小花园：库存（水滴 / 种子 / 果实）
-CREATE TABLE IF NOT EXISTS garden_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL DEFAULT 1,
-  child_id INTEGER NOT NULL,
-  item_key TEXT NOT NULL,
-  count INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
 -- 提醒中心
 CREATE TABLE IF NOT EXISTS reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -557,9 +530,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_settings_child_activity ON garden_s
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_mastery_child_activity_item ON garden_mastery(child_id, activity, item_key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_characters_child_char ON garden_characters(child_id, char);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_idiom_stories_user_word_age ON garden_idiom_stories(user_id, word, age_group);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_plots_slot ON garden_plots(child_id, slot);
-CREATE INDEX IF NOT EXISTS idx_garden_plots_child ON garden_plots(child_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_garden_items_key ON garden_items(child_id, item_key);
 
 -- 提醒中心：调度只看 idx_reminders_due，一条索引查询搞定到期检查
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(enabled, next_run_at);
@@ -682,6 +652,16 @@ FROM fee_records;
 DROP TABLE fee_records;
 `);
 }
+
+// ===== 3D 小花园下线清理（幂等）：garden_plots / garden_items 两表随功能一并移除 =====
+sqlite.exec(`
+DROP TABLE IF EXISTS garden_plots;
+DROP TABLE IF EXISTS garden_items;
+`);
+
+// 3D 小花园下线清理（幂等）：删掉已废弃的 api:garden-plots:* 接口权限按钮，
+// 避免角色授权页仍列出「我的花园·查看列表」等指向已删接口的权限点。
+sqlite.exec("DELETE FROM menus WHERE type = 'button' AND perms LIKE 'api:garden-plots:%'");
 
 // ===== 账单类型改名迁移（幂等）：兴趣班 → 教育培训 =====
 sqlite.exec("UPDATE bills SET type = '教育培训' WHERE type = '兴趣班'");

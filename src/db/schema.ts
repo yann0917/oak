@@ -324,33 +324,6 @@ export const gardenIdiomStories = sqliteTable("garden_idiom_stories", {
   updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
 });
 
-// 可交互 3D 小花园：格子状态（收获即删除本行）
-export const gardenPlots = sqliteTable("garden_plots", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().default(1),
-  childId: integer("child_id").notNull(),
-  slot: integer("slot").notNull(), // 全局格号 0..35
-  species: text("species").notNull(),
-  stage: integer("stage").notNull().default(0), // 0 幼苗 1 成长 2 花苞 3 开花 4 结果
-  plantedAt: text("planted_at").notNull(),
-  stageStartedAt: text("stage_started_at").notNull(), // 当前阶段起点（惰性推进依赖）
-  waterCount: integer("water_count").notNull().default(0),
-  nickname: text("nickname").notNull().default(""),
-  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
-});
-
-// 可交互 3D 小花园：库存（item_key = "water" | "seed:<species>" | "fruit:<species>"）
-export const gardenItems = sqliteTable("garden_items", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().default(1),
-  childId: integer("child_id").notNull(),
-  itemKey: text("item_key").notNull(),
-  count: integer("count").notNull().default(0),
-  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
-});
-
 // ===== 提醒中心 =====
 
 // 提醒主表：调度只认 next_run_at，预计算落库，进程重启零丢失
