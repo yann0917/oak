@@ -32,7 +32,6 @@ import {
 } from "@/lib/garden/speech";
 import type { TtsVoice } from "@/lib/tts/voices";
 import { ACTIVITY_MAP, ACTIVITY_PALETTE } from "@/lib/garden/registry";
-import { speciesForActivity, speciesMeta } from "@/lib/garden/species";
 import { LEARN_SPEC } from "@/lib/garden/learn";
 import { BUILTIN_CHARACTERS } from "@/data/garden/characters";
 import { PINYIN_READ } from "@/data/garden/pinyin";
@@ -1126,13 +1125,6 @@ export default function GardenActivity({ type }: { type: string }) {
                 返回园地
               </Button>
             </div>
-            {/* 本轮成绩入账后才提示奖励（/api/garden-records 发放 1 颗种子 + 2 滴水滴）；
-                保存失败或未选成员时不承诺奖励，只保留去花园的引导 */}
-            <p className="text-sm mt-2" style={{ color: "var(--animal-text-color-secondary)" }}>
-              {saveState === "saved"
-                ? `🌱 获得一颗${speciesMeta(speciesForActivity(type)).name}种子 + 2 滴水滴，去「我的花园」种下吧`
-                : "去「我的花园」看看今天的花吧"}
-            </p>
           </div>
         </div>
       </div>

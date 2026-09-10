@@ -15,7 +15,6 @@ import {
 import { GAME_MAP } from "@/lib/games/registry";
 import { formatDuration } from "@/lib/garden/types";
 import GamesMenu from "@/components/games/GamesMenu";
-import GardenTab from "@/components/garden/GardenTab";
 
 // 动态颜色一律走 Chip（color 为 any）；静态颜色才用 Tag 字面量
 const DIFF_COLOR: Record<string, string> = {
@@ -109,22 +108,6 @@ export default function GardenHome({ initialTab }: { initialTab?: string }) {
         activeKey={tab}
         onChange={(key) => setTab(key)}
         items={[
-          // 第一个 Tab「我的花园」：读取真实地块数据并驱动种/浇水/收获
-          {
-            key: "garden",
-            label: "我的花园",
-            children:
-              memberId == null ? (
-                <p
-                  className="text-center py-20 text-sm"
-                  style={{ color: "var(--animal-text-color-secondary)" }}
-                >
-                  请先在右上角选择一个成员
-                </p>
-              ) : (
-                <GardenTab childId={memberId} />
-              ),
-          },
           { key: "cards", label: "学习卡片", children: renderCardsTab() },
           { key: "games", label: "益智游戏", children: <GamesMenu /> },
           { key: "records", label: "学习记录", children: renderRecordsTab() },
