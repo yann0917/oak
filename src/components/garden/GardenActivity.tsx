@@ -233,7 +233,6 @@ export default function GardenActivity({ type }: { type: string }) {
   const startedAtRef = useRef(0);
   const savedRef = useRef(false);
   // 本轮成绩的保存结果：只有确认入账才在结果页显示奖励（失败/未选成员时显示中性文案）
-  const [saveState, setSaveState] = useState<"idle" | "saved" | "failed">("idle");
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -299,7 +298,6 @@ export default function GardenActivity({ type }: { type: string }) {
   useEffect(() => {
     if (phase !== "done" || memberId == null || savedRef.current) return;
     savedRef.current = true;
-    setSaveState("idle");
     api("/api/garden-records", {
       method: "POST",
       body: JSON.stringify({
@@ -309,9 +307,7 @@ export default function GardenActivity({ type }: { type: string }) {
         durationSec,
         results,
       }),
-    })
-      .then(() => setSaveState("saved"))
-      .catch(() => setSaveState("failed"));
+    }).catch(() => {});
   }, [phase, memberId, type, difficulty, durationSec, results]);
 
   // 结果页：按正确率给吉祥物反应（高分激情夸奖，低分惋惜安慰）
@@ -373,7 +369,6 @@ export default function GardenActivity({ type }: { type: string }) {
       return;
     }
     savedRef.current = false;
-    setSaveState("idle");
     startedAtRef.current = Date.now();
     setQuestions(qs);
     setCurrent(0);
