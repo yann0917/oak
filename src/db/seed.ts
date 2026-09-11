@@ -48,7 +48,7 @@ export function ensurePermissionSeeds(db: Db) {
     ? (apiDir.id as number)
     : Number(
         (db.run(
-          sql`INSERT INTO menus (parent_id, type, name, path, icon, perms, sort, visible) VALUES (NULL, 'dir', '接口权限', '', 'icon-diy', '', 21, 1)`
+          sql`INSERT INTO menus (parent_id, type, name, path, icon, perms, sort, visible) VALUES (NULL, 'dir', '接口权限', '', 'icon-diy', '', 22, 1)`
         ) as any).lastInsertRowid
       );
   for (const p of API_PERMS) {
