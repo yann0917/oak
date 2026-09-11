@@ -10,4 +10,7 @@ export async function register() {
   // 食谱库：定期同步上游 GitHub 仓库
   const { startRecipeScheduler } = await import("@/lib/recipes/scheduler");
   startRecipeScheduler();
+  // 健身馆：定期同步动作库（错开启动高峰，延迟略长于食谱）
+  const { startExerciseScheduler } = await import("@/lib/exercises/scheduler");
+  startExerciseScheduler();
 }

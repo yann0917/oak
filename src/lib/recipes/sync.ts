@@ -8,9 +8,12 @@ import { RECIPE_SOURCES, type RecipeSource } from "./sources";
 
 /**
  * 食谱库多源同步：按 RECIPE_SOURCES 注册表逐源执行「commit sha 探测 → 拉 zip → 解析 →
- * 图片落盘 uploads/<imageDir> → 按 (source, source_path) upsert、上游删除同步删」。
+ * 图片落盘 data/<imageDir> → 按 (source, source_path) upsert、上游删除同步删」。
  * GitHub 访问默认走镜像（RECIPES_GH_MIRROR，默认 gh-proxy.com），失败自动回退直连。
  * 某个源失败不影响其他源；全部失败才抛错。
+ *
+ * 图片放 data/ 而不是 uploads/：可重新拉取的库内容（两个源共约 115MB / 550 张），
+ * 不属于用户上传数据；data/ 不进部署制品，服务器部署后由调度器按需拉取。
  */
 
 export function repoOf(src: RecipeSource): string {
@@ -18,7 +21,52 @@ export function repoOf(src: RecipeSource): string {
 }
 
 const GH_MIRROR = (process.env.RECIPES_GH_MIRROR ?? "https://gh-proxy.com").replace(/\/+$/, "");
-const UA_HEADERS = { "User-Agent": "oak-recipes-sync" };
+// 用常见浏览器 UA：自定义 UA 容易被镜像/CDN 限速，GitHub 也要求请求必须带 UA
+const UA_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+};
+
+/** 图片根目录（与 data/tts、data/exercises 同类运行时目录）；旧版本放在 uploads/，见 LEGACY_IMAGE_ROOT */
+const LEGACY_IMAGE_ROOT = path.join(process.cwd(), "uploads", "recipes");
+
+function imageRootOf(src: RecipeSource): string {
+  return path.join(process.cwd(), "data", ...src.imageDir.split("/"));
+}
+
+/** 本源的图片是否已在本地落盘（空/缺目录视为没有，触发重新拉取） */
+function imagesReady(src: RecipeSource): boolean {
+  try {
+    return fs.readdirSync(imageRootOf(src)).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** 把旧位置 uploads/recipes 的图片搬到 data/recipes（迁移用，省掉一次 115MB 重新下载） */
+function migrateLegacyImages(): void {
+  if (!fs.existsSync(LEGACY_IMAGE_ROOT)) return;
+  const target = path.join(process.cwd(), "data", "recipes");
+  try {
+    if (!fs.existsSync(target)) {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.renameSync(LEGACY_IMAGE_ROOT, target);
+      console.log("[recipes] 图片目录已从 uploads/recipes 迁到 data/recipes");
+      return;
+    }
+    // 新目录已存在：老的按源合并（不覆盖已有同名文件），再删掉旧目录
+    for (const sub of fs.readdirSync(LEGACY_IMAGE_ROOT)) {
+      const from = path.join(LEGACY_IMAGE_ROOT, sub);
+      const to = path.join(target, sub);
+      if (fs.existsSync(to)) continue;
+      fs.renameSync(from, to);
+    }
+    fs.rmSync(LEGACY_IMAGE_ROOT, { recursive: true, force: true });
+    console.log("[recipes] 已清理旧图片目录 uploads/recipes");
+  } catch (e: any) {
+    console.warn(`[recipes] 旧图片目录处理失败（可手动删除 uploads/recipes）：${e?.message ?? e}`);
+  }
+}
 
 export interface SourceSyncResult {
   source: string;
@@ -49,6 +97,8 @@ export async function syncRecipes(opts: { force?: boolean } = {}): Promise<SyncS
   syncing = true;
   progress.syncing = true;
   progress.current = "";
+  // 先把老版本的 uploads/recipes 搬/清掉，再判断要不要跳过同步（否则会白拉一次 115MB）
+  migrateLegacyImages();
   try {
     const results = await Promise.all(
       RECIPE_SOURCES.map(async (src): Promise<SourceSyncResult> => {
@@ -100,7 +150,8 @@ async function syncSource(src: RecipeSource, force: boolean): Promise<Omit<Sourc
     // 网络不通/被墙时继续全量同步
   }
   const state = db.select().from(recipeSyncState).where(eq(recipeSyncState.source, src.key)).get();
-  if (!force && headSha && state?.lastCommit === headSha) {
+  // 上游 commit 未变且图片已在位才跳过：图片被清空/换了目录（如从 uploads/ 迁到 data/）时重新拉
+  if (!force && headSha && state?.lastCommit === headSha && imagesReady(src)) {
     return { total: countBySource(src.key), added: 0, updated: 0, removed: 0, images: 0, skipped: true };
   }
 
@@ -116,8 +167,8 @@ async function syncSource(src: RecipeSource, force: boolean): Promise<Omit<Sourc
     console.warn(`[recipes:${src.key}] ${parsed.missingImages.length} 张正文引用的图片不在仓库中，示例:`, parsed.missingImages.slice(0, 5));
   }
 
-  // 4. 图片落盘 uploads/<imageDir>（同名覆盖，上游已删除的清掉）
-  const imageRoot = path.join(process.cwd(), "uploads", ...src.imageDir.split("/"));
+  // 4. 图片落盘 data/<imageDir>（同名覆盖，上游已删除的清掉）
+  const imageRoot = imageRootOf(src);
   fs.mkdirSync(imageRoot, { recursive: true });
   for (const [key, data] of parsed.images) {
     const file = path.join(imageRoot, key);

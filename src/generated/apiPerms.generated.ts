@@ -264,6 +264,31 @@ export const API_PERMS: ApiPermDef[] = [
     "label": "就读阶段·修改"
   },
   {
+    "resource": "exercises",
+    "perms": "api:exercises:detail",
+    "label": "健身馆·查看详情"
+  },
+  {
+    "resource": "exercises",
+    "perms": "api:exercises:list",
+    "label": "健身馆·查看列表"
+  },
+  {
+    "resource": "exercises",
+    "perms": "api:exercises:suggest-post",
+    "label": "健身馆·今天练什么"
+  },
+  {
+    "resource": "exercises",
+    "perms": "api:exercises:sync-get",
+    "label": "健身馆·同步状态"
+  },
+  {
+    "resource": "exercises",
+    "perms": "api:exercises:sync-post",
+    "label": "健身馆·立即同步"
+  },
+  {
     "resource": "family-sops",
     "perms": "api:family-sops:create",
     "label": "家庭指南·新增"
