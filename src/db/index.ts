@@ -5,6 +5,7 @@ import fs from "fs";
 import bcrypt from "bcryptjs";
 import * as schema from "./schema";
 import { ensurePermissionSeeds } from "./seed";
+import { menuSeedDefs } from "./menuSeed";
 
 const dataDir = path.join(process.cwd(), "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -917,6 +918,23 @@ if (!recipesMenuExists) {
 // 学习情况菜单移除迁移（幂等）：学习记录/兴趣班已并入「教育经历」，删除老菜单，
 // 避免残留指向已删除页面的入口（roles_menus 外键级联清理）。
 sqlite.prepare("DELETE FROM menus WHERE type = 'menu' AND path = '/learning'").run();
+
+// 模型展厅菜单插入迁移（幂等）：老库尚无 /exhibit 时，把顶层 sort>=6 的菜单整体后移一位，
+// 腾出 sort=6 给新菜单（模型展厅排在「学习园地」之后、「成长记录」之前）。
+// 注意要连 type='dir' 一起移（实用工具/系统管理也是顶层项），否则会和「设置」等项撞号。
+const exhibitMenuExists = sqlite.prepare("SELECT id FROM menus WHERE type = 'menu' AND path = '/exhibit'").get();
+if (!exhibitMenuExists) {
+  sqlite.exec("UPDATE menus SET sort = sort + 1 WHERE parent_id IS NULL AND sort >= 6");
+}
+
+// 顶层菜单顺序对齐种子（幂等）：历史迁移只在「菜单尚不存在」时整体移位，
+// 于是老库的 sort 会与 menuSeedDefs 漂移（实测 dev 库出现 健康档案=8/食谱=8、
+// 设置=15/关于=15 这类重号，侧栏同级顺序就不再确定）。这里按名字把顶层 sort 拉回种子值。
+// 「接口权限」目录不在种子里，不受影响。
+for (const node of menuSeedDefs) {
+  if (node.sort === undefined) continue;
+  sqlite.prepare("UPDATE menus SET sort = ? WHERE parent_id IS NULL AND name = ?").run(node.sort, node.name);
+}
 
 // 权限种子：admin 超管升级 + 菜单树 + 示例角色（幂等）
 export const db = drizzle(sqlite, { schema });
