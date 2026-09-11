@@ -705,7 +705,7 @@ export const recipes = sqliteTable(
     category: text("category").notNull().default(""), // 分类，如 "炒菜"
     name: text("name").notNull().default(""), // 菜名，如 "什锦蛋炒饭"
     sourcePath: text("source_path").notNull(), // 源仓库内路径（source 内唯一）
-    content: text("content").notNull().default(""), // markdown 正文（图片链接已改写为本地 /uploads/recipes/…）
+    content: text("content").notNull().default(""), // markdown 正文（图片链接已改写为本地 /media/recipes/…）
     image: text("image").notNull().default(""), // 首图本地路径，列表封面用
     updatedAt: text("updated_at").notNull().default(""),
   },
@@ -726,3 +726,39 @@ export const recipeSyncState = sqliteTable(
   },
   (t) => [uniqueIndex("idx_recipe_sync_state_source").on(t.source)]
 );
+
+// 健身馆动作库：外部 GitHub 仓库定期同步的只读内容，无用户维度——全家共享
+export const exercises = sqliteTable(
+  "exercises",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sourceId: text("source_id").notNull(), // 上游唯一 ID，如 "0001"
+    name: text("name").notNull().default(""), // 英文动作名
+    bodyPart: text("body_part").notNull().default(""), // chest / back / …
+    equipment: text("equipment").notNull().default(""),
+    target: text("target").notNull().default(""), // 目标肌
+    muscleGroup: text("muscle_group").notNull().default(""),
+    secondaryMuscles: text("secondary_muscles").notNull().default("[]"), // JSON string[]
+    steps: text("steps").notNull().default("[]"), // JSON string[]，中文分步
+    image: text("image").notNull().default(""), // /media/exercises/images/…
+    gif: text("gif").notNull().default(""), // /media/exercises/videos/…
+    attribution: text("attribution").notNull().default(""),
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [
+    uniqueIndex("idx_exercises_source_id").on(t.sourceId),
+    index("idx_exercises_body_part").on(t.bodyPart),
+    index("idx_exercises_equipment").on(t.equipment),
+    index("idx_exercises_target").on(t.target),
+  ]
+);
+
+// 健身馆同步状态（单行 id=1）
+export const exerciseSyncState = sqliteTable("exercise_sync_state", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  lastCommit: text("last_commit").notNull().default(""),
+  lastSyncedAt: text("last_synced_at").notNull().default(""),
+  lastStatus: text("last_status").notNull().default(""),
+  lastError: text("last_error").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});

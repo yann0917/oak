@@ -4,7 +4,7 @@
 // 分类 = 仓库顶层目录名，菜名 = md 文件名；左侧分类导航（移动端为顶部筛选片）+ 封面卡片网格
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, Input, Tag, Title } from "animal-island-ui";
+import { Button, Card, Input, Pagination, Tag, Title } from "animal-island-ui";
 import { api } from "@/lib/api";
 import { Notification } from "@/lib/toast";
 import { Perm } from "@/components/Perm";
@@ -39,6 +39,9 @@ interface SyncStatus {
   current: string;
   sources: SyncSourceStatus[];
 }
+
+/** 每页菜谱数（4 列网格 → 6 行） */
+const PAGE_SIZE = 24;
 
 function fmtSyncTime(iso: string): string {
   if (!iso) return "从未同步";
@@ -112,17 +115,38 @@ export default function RecipesPage() {
   const [list, setList] = useState<RecipeItem[]>([]);
   const [categories, setCategories] = useState<RecipeCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(""); // 输入框即时值
+  const [query, setQuery] = useState(""); // 防抖后真正发请求的关键词
   const [cat, setCat] = useState("");
+  const [page, setPage] = useState(1);
+  const [matched, setMatched] = useState(0); // 当前筛选下的命中总数（分页用）
   const [eatOpen, setEatOpen] = useState(false);
+  const reqRef = useRef(0);
+
+  // 输入防抖：搜索要扫正文 markdown，每敲一个字都查一次太浪费
+  // （关键词变了要回到第 1 页，沿用旧页码会落到空页）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(q.trim());
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [q]);
 
   const load = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (q.trim()) params.set("q", q.trim());
-    const data = await api<{ categories: RecipeCategory[]; list: RecipeItem[] }>(`/api/recipes?${params.toString()}`);
+    const seq = ++reqRef.current;
+    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+    if (query) params.set("q", query);
+    if (cat) params.set("category", cat);
+    const data = await api<{ categories: RecipeCategory[]; total: number; page: number; list: RecipeItem[] }>(
+      `/api/recipes?${params.toString()}`
+    );
+    if (seq !== reqRef.current) return; // 丢弃过期响应（连打时先发的可能后到）
     setCategories(data.categories);
+    setMatched(data.total);
+    setPage(data.page);
     setList(data.list);
-  }, [q]);
+  }, [query, cat, page]);
 
   useEffect(() => {
     load()
@@ -130,8 +154,13 @@ export default function RecipesPage() {
       .finally(() => setLoading(false));
   }, [load]);
 
-  const filtered = useMemo(() => (cat ? list.filter((r) => r.category === cat) : list), [list, cat]);
   const total = useMemo(() => categories.reduce((sum, c) => sum + c.count, 0), [categories]);
+  const hasFilter = !!query || !!cat;
+  // 换分类也回到第 1 页：在事件处理里改，避免 effect 内同步 setState 引起的级联渲染
+  const pickCat = (v: string) => {
+    setCat(v);
+    setPage(1);
+  };
 
   const catButton = (name: string, count: number, active: boolean, onClick: () => void, key?: string) => (
     <button
@@ -174,58 +203,70 @@ export default function RecipesPage() {
 
       {loading ? (
         <div className="text-center py-16 text-sm text-secondary">加载中…</div>
-      ) : list.length === 0 ? (
+      ) : total === 0 ? (
         <Card className="p-8 text-center">
           <div className="text-4xl mb-2">🍳</div>
-          <p className="text-secondary text-sm">
-            {q ? "没有找到相关菜谱，换个关键词试试" : "食谱库还是空的，点击右上角「同步菜谱」从上游仓库拉取"}
-          </p>
+          <p className="text-secondary text-sm">食谱库还是空的，点击右上角「同步菜谱」从上游仓库拉取</p>
         </Card>
       ) : (
         <div className="flex flex-col lg:flex-row gap-4">
           <aside className="hidden lg:block w-44 shrink-0">
             <div className="sticky top-4 flex flex-col gap-1">
-              {catButton("全部", total, !cat, () => setCat(""))}
-              {categories.map((c) => catButton(c.name, c.count, cat === c.name, () => setCat(cat === c.name ? "" : c.name)))}
+              {catButton("全部", total, !cat, () => pickCat(""))}
+              {categories.map((c) => catButton(c.name, c.count, cat === c.name, () => pickCat(cat === c.name ? "" : c.name)))}
             </div>
           </aside>
 
           <section className="flex-1 min-w-0">
             <div className="lg:hidden flex flex-wrap gap-2 mb-3">
-              {catButton("全部", total, !cat, () => setCat(""))}
-              {categories.map((c) => catButton(c.name, c.count, cat === c.name, () => setCat(cat === c.name ? "" : c.name)))}
+              {catButton("全部", total, !cat, () => pickCat(""))}
+              {categories.map((c) => catButton(c.name, c.count, cat === c.name, () => pickCat(cat === c.name ? "" : c.name)))}
             </div>
 
-            {filtered.length === 0 ? (
+            {list.length === 0 ? (
               <Card className="p-8 text-center">
                 <div className="text-4xl mb-2">🍽️</div>
-                <p className="text-secondary text-sm">「{cat}」下没有匹配的菜谱</p>
+                <p className="text-secondary text-sm">
+                  {query ? "没有找到相关菜谱，换个关键词试试" : `「${cat}」下没有匹配的菜谱`}
+                </p>
               </Card>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                {filtered.map((item) => (
-                  <Link key={item.id} href={`/recipes/${item.id}`} className="group">
-                    <Card className="p-2 h-full transition-transform group-hover:-translate-y-0.5">
-                      <div className="aspect-[4/3] rounded-lg overflow-hidden bg-warm-soft flex items-center justify-center">
-                        {item.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-3xl">🥘</span>
-                        )}
-                      </div>
-                      <div className="px-1 pt-2 pb-1">
-                        <div className="text-sm font-medium truncate" style={{ color: "var(--animal-text-color)" }}>
-                          {item.name}
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {list.map((item) => (
+                    <Link key={item.id} href={`/recipes/${item.id}`} className="group">
+                      <Card className="p-2 h-full transition-transform group-hover:-translate-y-0.5">
+                        <div className="aspect-[4/3] rounded-lg overflow-hidden bg-warm-soft flex items-center justify-center">
+                          {item.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-3xl">🥘</span>
+                          )}
                         </div>
-                        <div className="text-xs text-secondary mt-0.5 truncate">
-                          {item.category} · {SOURCE_LABELS[item.source] ?? item.source}
+                        <div className="px-1 pt-2 pb-1">
+                          <div className="text-sm font-medium truncate" style={{ color: "var(--animal-text-color)" }}>
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-secondary mt-0.5 truncate">
+                            {item.category} · {SOURCE_LABELS[item.source] ?? item.source}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+                {hasFilter && (
+                  <p className="text-xs text-secondary text-center pt-3">
+                    筛选命中 {matched} 道 / 全部 {total} 道
+                  </p>
+                )}
+                {matched > PAGE_SIZE && (
+                  <div className="flex justify-center pt-1">
+                    <Pagination total={matched} current={page} pageSize={PAGE_SIZE} showTotal onChange={setPage} />
+                  </div>
+                )}
+              </>
             )}
           </section>
         </div>

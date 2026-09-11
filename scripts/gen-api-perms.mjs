@@ -50,6 +50,7 @@ const RESOURCE_LABELS = {
   "push-channels": "推送渠道",
   "quick-notes": "一句话快记",
   recipes: "食谱",
+  exercises: "健身馆",
   "ai-settings": "AI 设置",
   "ai-providers": "模型配置",
   "ai-chat": "AI 助手",
@@ -95,6 +96,7 @@ const SUB_ACTION_LABELS = {
   "sync-get": "同步状态",
   "sync-post": "立即同步",
   "suggest-post": "AI 推荐菜谱",
+  "exercises-suggest-post": "今天练什么",
   "home-get": "首屏聚合",
 };
 
@@ -148,7 +150,12 @@ for (const file of walk(API_DIR)) {
       action = `${sub}-${m.toLowerCase()}`;
     }
     if (!action) continue; // 如 collection 里的 PUT（不存在）
-    const actionLabel = labelOverride ?? ACTION_LABELS[action] ?? SUB_ACTION_LABELS[action] ?? action;
+    const actionLabel =
+      labelOverride ??
+      ACTION_LABELS[action] ??
+      SUB_ACTION_LABELS[`${resource}-${action}`] ??
+      SUB_ACTION_LABELS[action] ??
+      action;
     perms.push({
       resource,
       perms: `api:${resource}:${action}`,

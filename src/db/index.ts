@@ -885,6 +885,52 @@ DROP INDEX IF EXISTS idx_recipes_source_path;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_recipes_source_dish ON recipes(source, source_path);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_recipe_sync_state_source ON recipe_sync_state(source);
 `);
+// 健身馆动作库：外部仓库定期同步的只读内容（无用户维度，全家共享）
+sqlite.exec(`
+CREATE TABLE IF NOT EXISTS exercises (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  body_part TEXT NOT NULL DEFAULT '',
+  equipment TEXT NOT NULL DEFAULT '',
+  target TEXT NOT NULL DEFAULT '',
+  muscle_group TEXT NOT NULL DEFAULT '',
+  secondary_muscles TEXT NOT NULL DEFAULT '[]',
+  steps TEXT NOT NULL DEFAULT '[]',
+  image TEXT NOT NULL DEFAULT '',
+  gif TEXT NOT NULL DEFAULT '',
+  attribution TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exercises_source_id ON exercises(source_id);
+CREATE INDEX IF NOT EXISTS idx_exercises_body_part ON exercises(body_part);
+CREATE INDEX IF NOT EXISTS idx_exercises_equipment ON exercises(equipment);
+CREATE INDEX IF NOT EXISTS idx_exercises_target ON exercises(target);
+CREATE TABLE IF NOT EXISTS exercise_sync_state (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  last_commit TEXT NOT NULL DEFAULT '',
+  last_synced_at TEXT NOT NULL DEFAULT '',
+  last_status TEXT NOT NULL DEFAULT '',
+  last_error TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+`);
+// 食谱图片同样从 uploads/recipes 改存 data/recipes：图片列与正文 markdown 里的链接都要改
+// （正文里是 ![alt](/uploads/recipes/…) 形式，详情页直接渲染，漏改会 404）
+sqlite
+  .prepare(
+    `UPDATE recipes SET
+       image = replace(image, '/uploads/recipes/', '/media/recipes/')
+     WHERE image LIKE '/uploads/recipes/%'`
+  )
+  .run();
+sqlite
+  .prepare(
+    `UPDATE recipes SET
+       content = replace(content, '/uploads/recipes/', '/media/recipes/')
+     WHERE content LIKE '%/uploads/recipes/%'`
+  )
+  .run();
 
 // 种子账号：首次运行时创建默认管理员 admin/admin123
 const userCount = (sqlite.prepare("SELECT COUNT(*) as c FROM users").get() as any).c;
@@ -913,6 +959,12 @@ if (!certMenuExists) {
 const recipesMenuExists = sqlite.prepare("SELECT id FROM menus WHERE type = 'menu' AND (path = '/recipes' OR name = '食谱')").get();
 if (!recipesMenuExists) {
   sqlite.exec("UPDATE menus SET sort = sort + 1 WHERE type = 'menu' AND sort >= 17");
+}
+
+// 健身馆菜单插入迁移（幂等）：老库尚无「健身馆」时，把 sort>=19 的菜单（关于）整体后移一位。
+const gymMenuExists = sqlite.prepare("SELECT id FROM menus WHERE type = 'menu' AND (path = '/gym' OR name = '健身馆')").get();
+if (!gymMenuExists) {
+  sqlite.exec("UPDATE menus SET sort = sort + 1 WHERE type = 'menu' AND sort >= 19");
 }
 
 // 学习情况菜单移除迁移（幂等）：学习记录/兴趣班已并入「教育经历」，删除老菜单，

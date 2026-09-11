@@ -10,7 +10,7 @@ export interface RecipeSource {
   defaultRepo: string; // 默认 GitHub 仓库（owner/name）
   branch: string; // 上游默认分支
   zipTimeoutMs: number; // zip 下载超时（HowToCook 含 108MB 图片，镜像慢速也需 20 分钟级）
-  imageDir: string; // 图片落盘目录（相对 uploads/）
+  imageDir: string; // 图片落盘目录（相对 data/，如 recipes/images）
   parse: (entries: ZipEntry[]) => ParsedSource;
 }
 
@@ -24,7 +24,7 @@ export interface SourceDish {
   sourcePath: string; // 源仓库内路径（去掉 zip 根前缀），source 内唯一
   category: string;
   name: string;
-  content: string; // 图片链接已改写为本地 /uploads/... 的 markdown
+  content: string; // 图片链接已改写为本地 /media/... 的 markdown
   image: string; // 首图本地路径
 }
 
@@ -40,7 +40,8 @@ export const SOURCE_LABELS: Record<string, string> = {
 };
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
-const IMAGE_URL_PREFIX = "/uploads/recipes";
+/** 图片公开 URL 前缀，对应 /media/[...path] 路由，文件落在 data/recipes/（见 sync.ts 的 imageRootOf） */
+const IMAGE_URL_PREFIX = "/media/recipes";
 
 function isImage(name: string): boolean {
   const dot = name.lastIndexOf(".");

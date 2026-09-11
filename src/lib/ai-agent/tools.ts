@@ -3,6 +3,7 @@ import { z } from "zod";
 import { and, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { BILL_TYPES } from "@/lib/bills";
+import { expandKeyword } from "@/lib/exercises/sources";
 import { anysearchExtract, anysearchSearch } from "./anysearch";
 import { retrieveRag } from "@/lib/rag/store";
 import {
@@ -21,6 +22,7 @@ import {
   policyNotes,
   quickNotes,
   recipes,
+  exercises,
   reminders,
   reviewCards,
   schools,
@@ -220,6 +222,77 @@ export function buildAgentTools(uid: number, opts: { searchApiKey?: string } = {
               total: rows.length,
               rows: rows.map((r) => ({ id: r.id, source: r.source, category: r.category, name: r.name })),
               note: "清单仅含菜名，需要具体做法时用 keyword 搜索菜名",
+            };
+      },
+      records
+    ),
+
+    // 1.7 健身馆动作库（全局只读内容，无用户维度）
+    queryExercises: define(
+      "queryExercises",
+      "查询健身馆动作库（1300+ 个力量/有氧动作，含中文步骤、部位、器械、目标肌）。注意动作名与部位/器械/目标肌字段都是英文，关键词优先用英文（bench press、squat、biceps），中文口语（卧推、深蹲、二头）也能命中；也可按部位（chest/back/shoulders/upper arms/upper legs/waist/cardio）与器械（body weight/dumbbell/barbell/cable/kettlebell 等）筛选",
+      z.object({
+        keyword: z.string().optional().describe("动作名/肌群关键词，英文优先（bench press、squat、biceps），也认 卧推/深蹲/二头 等中文词"),
+        bodyPart: z.string().optional().describe("按部位筛选英文枚举，如 chest、upper legs、waist"),
+        equipment: z.string().optional().describe("按器械筛选，如 dumbbell、body weight、barbell"),
+        limit: z.number().int().min(1).max(8).optional().describe("带完整步骤返回的数量，默认 3"),
+      }),
+      async ({ keyword, bodyPart, equipment, limit }) => {
+        const kw = (keyword ?? "").trim();
+        const bp = (bodyPart ?? "").trim().toLowerCase();
+        const eqp = (equipment ?? "").trim().toLowerCase();
+        const n = Math.min(8, Math.max(1, Math.floor(Number(limit) || 3)));
+        // 中文关键词展开成英文动作名/肌群词（动作名是英文）；步骤正文只匹配原词
+        const terms = expandKeyword(kw);
+        const kwConds = terms.flatMap((t, i) => [
+          like(exercises.name, `%${t}%`),
+          like(exercises.target, `%${t}%`),
+          like(exercises.muscleGroup, `%${t}%`),
+          like(exercises.secondaryMuscles, `%${t}%`),
+          ...(i === 0 ? [like(exercises.steps, `%${t}%`)] : []),
+        ]);
+        const conds = [
+          bp ? eq(exercises.bodyPart, bp) : undefined,
+          eqp ? eq(exercises.equipment, eqp) : undefined,
+          ...(kwConds.length ? [or(...kwConds)] : []),
+        ];
+        const rows = db
+          .select({
+            id: exercises.id,
+            name: exercises.name,
+            bodyPart: exercises.bodyPart,
+            equipment: exercises.equipment,
+            target: exercises.target,
+            muscleGroup: exercises.muscleGroup,
+            steps: exercises.steps,
+          })
+          .from(exercises)
+          .where(and(...conds))
+          .orderBy(kw ? sql`CASE WHEN ${exercises.name} LIKE ${`%${terms[0]}%`} THEN 0 ELSE 1 END` : sql`1`, exercises.id)
+          .limit(kw || bp || eqp ? n : 50)
+          .all();
+        if (!rows.length) {
+          const parts = db.select({ bodyPart: exercises.bodyPart, count: sql<number>`count(*)` }).from(exercises).groupBy(exercises.bodyPart).all();
+          if (!parts.length) return { rows: [], note: "健身馆还是空的，尚未同步动作库" };
+          return {
+            rows: [],
+            note: `没有匹配的动作。现有部位：${parts.map((p) => `${p.bodyPart}(${p.count})`).join("、")}；常见器械：body weight、dumbbell、barbell、cable；关键词请用英文动作名（bench press、squat）`,
+          };
+        }
+        const mapped = rows.map((r) => {
+          let steps: string[] = [];
+          try {
+            steps = JSON.parse(r.steps || "[]");
+          } catch {}
+          // 字段值保持上游英文枚举（模型可原样用作筛参、自行转述中文）
+          return { id: r.id, name: r.name, bodyPart: r.bodyPart, equipment: r.equipment, target: r.target, muscleGroup: r.muscleGroup, steps: steps.slice(0, 5) };
+        });
+        return rows.length <= n || kw || bp || eqp
+          ? { total: rows.length, rows: mapped }
+          : {
+              total: rows.length,
+              rows: rows.slice(0, n).map((r) => ({ id: r.id, name: r.name, bodyPart: r.bodyPart, equipment: r.equipment })),
+              note: "清单仅含动作名，请用 keyword/bodyPart 进一步筛选以获取步骤",
             };
       },
       records

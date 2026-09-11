@@ -7,6 +7,12 @@ const nextConfig = {
   output: "standalone",
   // Next.js 15 起由 experimental.serverComponentsExternalPackages 更名而来
   serverExternalPackages: ["better-sqlite3", "ws", "exceljs", "adm-zip"],
+  // 声明 data/ 与 uploads/ 不属于构建产物（运行时由挂载保留、由同步器按需拉取）。
+  // 实测：能消掉同步器写文件那几处 Turbopack 过宽模式警告，但 Turbopack 下这两个目录
+  // 仍会被复制进 .next/standalone（300MB+），制品清理由 deploy workflow 的 rm -rf 负责。
+  outputFileTracingExcludes: {
+    "*": ["./data/**", "./uploads/**"],
+  },
   async redirects() {
     return [
       // 学期/老师并入教育经历、兴趣班并入学习情况的 Tab 后，兼容旧地址
