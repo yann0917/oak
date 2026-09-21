@@ -17,7 +17,7 @@
     "@ai-sdk/react": "^4.0.90",
     "@mediapipe/tasks-vision": "^1.0.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "adm-zip": "^0.6.0",
+    "adm-zip": "^0.6.1",
     "ai": "^7.0.87",
     "animal-island-ui": "^1.8.0",
     "bcryptjs": "^3.0.3",
