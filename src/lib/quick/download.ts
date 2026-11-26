@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import net from "net";
 
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -28,12 +29,59 @@ function detectImageExt(buf: Buffer): string | null {
 
 const MAX_BYTES = 15 * 1024 * 1024;
 
+function isPrivateIpv4(host: string): boolean {
+  const parts = host.split(".").map((n) => Number(n));
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 0) return true;
+  return false;
+}
+
+function isBlockedIpLiteral(hostname: string): boolean {
+  const ipType = net.isIP(hostname);
+  if (ipType === 4) return isPrivateIpv4(hostname);
+  if (ipType === 6) {
+    const h = hostname.toLowerCase();
+    return h === "::1" || h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd");
+  }
+  return false;
+}
+
+function validateRemoteImageUrl(input: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(input);
+  } catch {
+    throw new Error("无效的图片链接");
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error("仅支持 http(s) 图片链接");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("图片链接不允许包含账号信息");
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (host === "localhost" || host.endsWith(".localhost")) {
+    throw new Error("不允许访问本地地址");
+  }
+  if (isBlockedIpLiteral(host)) {
+    throw new Error("不允许访问内网地址");
+  }
+  return parsed.toString();
+}
+
 /**
  * 下载远程图片并保存到本地 uploads（与 /api/upload 同目录），返回 /uploads/xxx。
  * 用于快记粘贴图片链接：本地留存不依赖外链长期可用，AI 识图只读本地文件。
  */
 export async function downloadRemotePhoto(url: string): Promise<string> {
-  const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000) });
+  const safeUrl = validateRemoteImageUrl(url);
+  const res = await fetch(safeUrl, { redirect: "error", signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`下载失败（HTTP ${res.status}）`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length === 0) throw new Error("下载内容为空");
